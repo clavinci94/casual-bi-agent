@@ -7,12 +7,18 @@ time, then asks the causal layer to estimate an effect.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pandas as pd
 from sqlalchemy import text
 
 from biq.db import engine
+
+
+def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """to_dict variant that round-trips through JSON so datetimes etc become strings."""
+    return json.loads(df.to_json(orient="records", date_format="iso"))
 
 
 def releases_in_window(start: str, end: str) -> dict[str, Any]:
@@ -26,7 +32,7 @@ def releases_in_window(start: str, end: str) -> dict[str, Any]:
     )
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params={"start": start, "end": end})
-    return {"rows": df.to_dict(orient="records"), "row_count": int(len(df))}
+    return {"rows": _df_to_records(df), "row_count": int(len(df))}
 
 
 def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
@@ -41,4 +47,4 @@ def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
     )
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params={"start": start, "end": end})
-    return {"rows": df.to_dict(orient="records"), "row_count": int(len(df))}
+    return {"rows": _df_to_records(df), "row_count": int(len(df))}

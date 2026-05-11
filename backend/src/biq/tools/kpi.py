@@ -7,12 +7,18 @@ external LLMs can also reach it.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pandas as pd
 from sqlalchemy import text
 
 from biq.db import engine
+
+
+def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """to_dict variant that round-trips through JSON so datetimes etc become strings."""
+    return json.loads(df.to_json(orient="records", date_format="iso"))
 
 ALLOWED_VIEWS: set[str] = {
     "conversion_rate_daily",
@@ -68,7 +74,7 @@ def kpi_query(
             df = df.groupby(valid, as_index=False, dropna=False)[numeric].sum()
 
     return {
-        "rows": df.head(limit).to_dict(orient="records"),
+        "rows": _df_to_records(df.head(limit)),
         "row_count": int(len(df)),
         "columns": list(df.columns),
         "truncated": bool(len(df) > limit),

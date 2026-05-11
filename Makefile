@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate backend-sync format lint test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate mcp-serve mcp-inspect mcp-smoke backend-sync format lint test
 
 help:
 	@echo "Targets:"
@@ -15,6 +15,9 @@ help:
 	@echo "  db-reset      Wipe volume, restart, reapply schemas"
 	@echo "  detect-anomalies  Run the heuristic anomaly detector"
 	@echo "  investigate Q=\"...\"  Run the LLM-driven investigator (requires ANTHROPIC_API_KEY)"
+	@echo "  mcp-serve     Run the causal-bi MCP server (stdio)"
+	@echo "  mcp-inspect   Open the MCP Inspector GUI against the server"
+	@echo "  mcp-smoke     Programmatic smoke test of the MCP server"
 	@echo "  backend-sync  uv sync inside backend/"
 	@echo "  format        ruff format + autofix"
 	@echo "  lint          ruff check + mypy"
@@ -53,6 +56,15 @@ detect-anomalies:
 investigate:
 	@if [ -z "$(Q)" ]; then echo 'Usage: make investigate Q="your question here"'; exit 1; fi
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/investigate.py "$(Q)" $(INVESTIGATE_ARGS)
+
+mcp-serve:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python -m biq.mcp_servers.bi
+
+mcp-inspect:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run mcp dev src/biq/mcp_servers/bi.py
+
+mcp-smoke:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/mcp_smoke.py
 
 db-reset:
 	docker compose down -v

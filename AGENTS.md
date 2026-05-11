@@ -114,13 +114,14 @@ Early MVP. Working vertical slice: schemas → Olist seed → simulator (with gr
 mobile_checkout_v2 anomaly) → KPI views → heuristic anomaly detector → LLM-driven
 investigator (Claude tool-use, prompt-cached) → audit log.
 
-Two demo paths now work end-to-end:
+Three demo paths now work end-to-end:
 - `make detect-anomalies DETECT_ARGS="--date 2018-05-05"` (no LLM, deterministic)
-- `make investigate Q="What happened to mobile conversion in early May 2018?"` (Claude Sonnet 4.6 with tool use)
+- `make investigate Q="..."` (Claude Sonnet 4.6 with tool use, in-process)
+- `make mcp-serve` (MCP server for Claude Desktop / Cursor / n8n / Ollama — see `docs/mcp-clients.md`)
+- `make mcp-smoke` programmatically verifies the MCP path (lists tools/resources, calls `kpi_query` in the bug window, asserts `rel_mobile_v2` is active)
 
-Both share `biq.audit` and `biq.tools.*`. Tools (`kpi_query`, `releases_in_window`,
-`campaigns_in_window`, `record_finding`) will be wrapped as MCP servers next so external
-LLMs can also reach them.
+All three share `biq.audit` (where applicable) and `biq.tools.*`. The MCP server is a thin
+wrapper — single source of truth for tools stays in `biq.tools.*`.
 
-Not yet built: MCP server wrappers, R `CausalImpact` integration, LangGraph multi-agent
-orchestration, HITL UI, frontend, deploy. See `README.md` Roadmap.
+Not yet built: R `CausalImpact` integration, LangGraph multi-agent orchestration, HITL UI,
+frontend, deploy. See `README.md` Roadmap.

@@ -36,7 +36,7 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 - [x] Audit logging module (`audit.*` writes)
 - [x] First agent: heuristic anomaly detector — finds the simulated mobile bug
 - [x] LLM-driven investigator agent (Claude tool-use, prompt-cached, fully audited)
-- [ ] First MCP server: wrap existing tools as MCP for external LLMs
+- [x] MCP server (`causal-bi`): tools + resources exposed for Claude Desktop / Cursor / n8n / Ollama
 - [ ] LangGraph multi-agent orchestration (Orchestrator → Data → Causal → Narrative → Review)
 - [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
 - [ ] Multi-agent orchestration
