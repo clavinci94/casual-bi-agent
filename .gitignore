@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.env.local
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Data — never commit seed CSVs or zip archives
+data/seed/*.csv
+data/seed/*.zip
+data/seed/*.tsv
+data/seed/*.parquet
+data/notebooks/.ipynb_checkpoints/
+*.db
+*.sqlite
+
+# Node / Next
+node_modules/
+.next/
+.vercel/
+out/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Logs and local state
+*.log
+logs/
+.langgraph/
+
+# Secrets
+*.pem
+*.key

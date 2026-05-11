@@ -1,0 +1,88 @@
+# Semantic Layer — source of truth for KPI definitions.
+# Agents may only read KPIs via the kpi.* views generated from this catalog.
+# Changes here require a migration that regenerates the view.
+
+kpis:
+  - name: conversion_rate
+    description: "Share of sessions that result in at least one order"
+    formula: "count(distinct sessions_with_order) / count(distinct session_id)"
+    grain: [day, week, channel, device]
+    filters_allowed: [country, device, channel, campaign_id]
+    source_tables: [raw.web_events, raw.orders]
+    materialise_as: kpi.conversion_rate_daily
+    owner: marketing
+    freshness_sla_minutes: 60
+    typical_misinterpretation: "Includes bot traffic unless raw.web_events.is_bot is filtered"
+
+  - name: average_order_value
+    description: "Mean revenue per order, before refunds"
+    formula: "sum(order_items.price) / count(distinct orders.order_id)"
+    grain: [day, week, month, category]
+    filters_allowed: [category, region, customer_segment]
+    source_tables: [raw.orders, raw.order_items]
+    materialise_as: kpi.aov_daily
+    owner: revenue
+    freshness_sla_minutes: 60
+    typical_misinterpretation: "Does not net out freight; see gross_margin for that"
+
+  - name: gross_margin
+    description: "Revenue minus COGS and freight, as a share of revenue"
+    formula: "(sum(price) - sum(cogs) - sum(freight)) / sum(price)"
+    grain: [day, week, month, category, region]
+    filters_allowed: [category, region, seller_id]
+    source_tables: [raw.order_items, raw.products]
+    materialise_as: kpi.gross_margin_weekly
+    owner: finance
+    freshness_sla_minutes: 1440
+    typical_misinterpretation: "COGS is estimated from product weight × constant; document the constant in an ADR"
+
+  - name: churn_30d
+    description: "Customers active in [t-60d, t-30d] but inactive in [t-30d, t]"
+    formula: "see kpi.churn_30d view"
+    grain: [week, segment]
+    filters_allowed: [segment, region]
+    source_tables: [raw.customers, raw.orders]
+    materialise_as: kpi.churn_30d
+    owner: retention
+    freshness_sla_minutes: 1440
+    typical_misinterpretation: "Customers with a single one-off purchase are over-counted as churners"
+
+  - name: repeat_purchase_rate
+    description: "Share of customers with ≥2 orders within 90 days of first order"
+    formula: "see kpi.repeat_purchase_rate view"
+    grain: [week, segment]
+    filters_allowed: [segment, region, first_category]
+    source_tables: [raw.customers, raw.orders]
+    materialise_as: kpi.repeat_purchase_rate
+    owner: retention
+    freshness_sla_minutes: 1440
+
+  - name: delivery_time_p95
+    description: "95th percentile of (delivered_at - ordered_at) in business days"
+    formula: "percentile_disc(0.95) within group (order by delivery_business_days)"
+    grain: [day, region, seller_id]
+    filters_allowed: [region, seller_id, category]
+    source_tables: [raw.orders]
+    materialise_as: kpi.delivery_time_p95
+    owner: logistics
+    freshness_sla_minutes: 60
+
+  - name: review_score_avg
+    description: "Mean review score, weighted by recency (last 90 days)"
+    formula: "weighted_avg(reviews.score)"
+    grain: [week, category, seller_id]
+    filters_allowed: [category, seller_id, region]
+    source_tables: [raw.reviews, raw.orders, raw.order_items]
+    materialise_as: kpi.review_score_avg
+    owner: quality
+    freshness_sla_minutes: 1440
+
+  - name: refund_rate
+    description: "Share of orders with status canceled or unavailable"
+    formula: "count(orders where status in ('canceled','unavailable')) / count(orders)"
+    grain: [week, category, region]
+    filters_allowed: [category, region, payment_type]
+    source_tables: [raw.orders]
+    materialise_as: kpi.refund_rate
+    owner: finance
+    freshness_sla_minutes: 60
