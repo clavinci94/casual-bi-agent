@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl backend-sync format lint test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test
 
 help:
 	@echo "Targets:"
@@ -24,6 +24,7 @@ help:
 	@echo "  causal-smoke  Run CausalImpact on the mobile_v2 ground truth"
 	@echo "  graph-investigate  Run the LangGraph multi-agent investigator"
 	@echo "  hitl          Launch the Streamlit HITL approval UI"
+	@echo "  api-serve     Launch the FastAPI HTTP API on http://localhost:8000"
 	@echo "  backend-sync  uv sync inside backend/"
 	@echo "  format        ruff format + autofix"
 	@echo "  lint          ruff check + mypy"
@@ -89,6 +90,10 @@ graph-investigate:
 
 hitl:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run streamlit run src/biq/ui/hitl.py
+
+api-serve:
+	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" \
+		uv run uvicorn biq.api.app:app --reload --port 8000
 
 db-reset:
 	docker compose down -v

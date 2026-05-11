@@ -41,7 +41,6 @@ omit = [
     # Interface layers — covered by integration smoke tests
     "src/biq/ui/*",
     "src/biq/mcp_servers/*",
-    "src/biq/api/*",
     # LLM-driven path needs an API key — covered by `make investigate` smoke
     "src/biq/agents/investigator.py",
     # R-dependent — covered by `make causal-smoke` and @causal pytest marker

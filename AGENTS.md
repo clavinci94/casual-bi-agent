@@ -153,6 +153,13 @@ Now feature-complete for the MVP:
   `infra/deploy.md` walks through Neon + Render. Dockerfiles: `backend/Dockerfile`
   (FastAPI), `backend/Dockerfile.streamlit` (HITL).
 
-Open next steps for production hardening: FastAPI HTTP entrypoint (`biq.api.app`)
-referenced by `backend/Dockerfile` but not yet implemented, SSO for the HITL UI,
-audit retention job in n8n, CI in GitHub Actions.
+FastAPI HTTP layer (`biq.api.app`) is now live — see `make api-serve` and the
+OpenAPI docs at `/docs`. Routes mirror the existing CLI / MCP / Streamlit interfaces:
+`/api/kpis`, `/api/recommendations` (with HITL `/decision` endpoint),
+`/api/runs` (audit trace), `/api/investigations/{anomaly,graph}`. All four interface
+adapters now share the same domain + application layers — replace any one without
+touching the others.
+
+Open next steps for production hardening: SSO for the HITL UI and HTTP API,
+audit retention job in n8n, knowledge-graph operationalisation (kg.* nodes
+for Insight/Decision/Outcome).

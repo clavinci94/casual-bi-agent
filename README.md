@@ -41,6 +41,8 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 - [x] LangGraph multi-agent graph (data → context → causal → narrative → review → record), with retry loop on review failure
 - [x] Eval harness: pytest with 11 golden tests, integration markers for R-dependent tests
 - [x] Streamlit HITL UI (`make hitl`) listing pending recommendations with full trace, approve/reject writes to `audit.hitl_decisions`
+- [x] FastAPI HTTP layer (`make api-serve`) — `/healthz`, `/readyz`, `/api/kpis`, `/api/recommendations`, `/api/runs`, `/api/investigations`, OpenAPI at `/docs`
+- [x] CI/CD pipeline (`.github/workflows/ci.yml`) — lint + tests with ≥75 % coverage gate (currently 91.4 %) + Docker image builds
 - [x] Deploy infra: `infra/render.yaml` blueprint + `infra/deploy.md` walkthrough for Neon + Render
 - [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
 - [ ] Multi-agent orchestration
@@ -57,6 +59,9 @@ make db-up && make backend-sync
 make db-seed              # schemas + Olist load + simulated extensions
 make detect-anomalies DETECT_ARGS="--date 2018-05-05"
 # expected: mobile conversion drop flagged as 'high' severity
+
+# HTTP API on http://localhost:8000  (OpenAPI docs: /docs)
+make api-serve
 
 # LLM-driven investigator (needs ANTHROPIC_API_KEY in .env)
 make investigate Q="What happened to mobile conversion rate in early May 2018?"

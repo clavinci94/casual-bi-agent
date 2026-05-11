@@ -72,7 +72,21 @@ def kpi_query(
         valid = [d for d in group_by if d in df.columns]
         if valid:
             numeric = df.select_dtypes(include="number").columns.tolist()
-            df = df.groupby(valid, as_index=False, dropna=False)[numeric].sum()
+            # Pre-computed ratios/percentiles cannot be summed — drop them when
+            # aggregating. Counts/sums (sessions, conversions, revenue) remain.
+            summable = [
+                c
+                for c in numeric
+                if not (
+                    c.endswith("_pct")
+                    or c.endswith("_rate")
+                    or c.endswith("_avg")
+                    or c.startswith("avg_")
+                    or c.startswith("p95_")
+                    or c == "gross_margin"
+                )
+            ]
+            df = df.groupby(valid, as_index=False, dropna=False)[summable].sum()
 
     return {
         "rows": _df_to_records(df.head(limit)),
