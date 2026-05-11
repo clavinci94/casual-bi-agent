@@ -52,20 +52,22 @@ See `docs/architecture.md` for the full picture.
 
 ## Setup
 
-TBD once backend exists. Provisional:
+```bash
+cp .env.example .env             # adjust if needed
+make db-up                        # local Postgres on port 5433
+make backend-sync                 # uv sync in backend/
+make db-schemas                   # apply db/schemas/*.sql
+
+# Download Olist CSVs into data/seed/ (see data/seed/README.md), then:
+make db-load                      # load CSVs into raw.*
+```
+
+Verify:
 
 ```bash
-# 1. Postgres (Neon or local)
-psql $DATABASE_URL -f db/schemas/01_raw.sql
-psql $DATABASE_URL -f db/schemas/03_docs.sql
-psql $DATABASE_URL -f db/schemas/04_kg.sql
-psql $DATABASE_URL -f db/schemas/05_audit.sql
-
-# 2. Seed data
-# Download Olist CSVs into data/seed/ — see data/seed/README.md
-
-# 3. Backend (not built yet)
-# cd backend && uv sync && uv run uvicorn biq.api.app:app --reload
+psql postgresql://causalbi:causalbi@localhost:5433/causalbi \
+  -c "select count(*) from raw.orders;"
+# expected: ~99441
 ```
 
 ## Conventions
@@ -108,4 +110,11 @@ psql $DATABASE_URL -f db/schemas/05_audit.sql
 
 ## Status
 
-Pre-MVP. Repo scaffold + DB schema v0 exist. Backend not started. See `README.md` Roadmap.
+Early MVP. Working vertical slice: schemas → Olist seed → simulator (with ground-truth
+mobile_checkout_v2 anomaly) → KPI views → heuristic anomaly detector → audit log.
+
+Verifiable end-to-end: `make db-seed && make detect-anomalies DETECT_ARGS="--date 2018-05-05"`
+flags the mobile conversion drop and writes a recommendation to `audit.recommendations`.
+
+Next: SQL-MCP server, LLM-driven planner agent, R `CausalImpact` integration. See
+`README.md` Roadmap.

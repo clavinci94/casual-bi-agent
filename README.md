@@ -29,15 +29,30 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 
 - [x] Repo scaffold + AGENTS.md
 - [x] DB schema v0 (raw + docs + kg + audit)
-- [ ] KPI catalog → view generator (`kpi.*`)
-- [ ] Olist seed loader + simulators (web_events, campaigns, releases, support_tickets)
+- [x] Local dev: docker-compose Postgres+pgvector, backend skeleton, Makefile
+- [x] Olist seed loader
+- [x] Simulators: `web_events` / `campaigns` / `releases` / `support_tickets` (with deliberate `mobile_checkout_v2` anomaly for the causal demo)
+- [x] KPI views (`02_kpi.sql`): 7 working + `churn_30d` placeholder
+- [x] Audit logging module (`audit.*` writes)
+- [x] First agent: heuristic anomaly detector — finds the simulated mobile bug
 - [ ] First MCP server: SQL tool against `kpi.*`
-- [ ] First agent: anomaly detector
-- [ ] First causal demo: `CausalImpact` on a known simulated treatment
-- [ ] Multi-agent orchestration (LangGraph)
+- [ ] LLM-driven planner agent (LangGraph + Claude)
+- [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
+- [ ] Multi-agent orchestration
 - [ ] HITL UI
 - [ ] Eval harness
 - [ ] Deploy to Render + Neon
+
+## Local quickstart
+
+```bash
+cp .env.example .env
+make db-up && make backend-sync
+# download Olist into data/seed/ (see data/seed/README.md)
+make db-seed              # schemas + Olist load + simulated extensions
+make detect-anomalies DETECT_ARGS="--date 2018-05-05"
+# expected: mobile conversion drop flagged as 'high' severity
+```
 
 ## Licence
 
