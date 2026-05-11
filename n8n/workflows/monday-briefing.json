@@ -1,0 +1,121 @@
+{
+  "name": "Causal BI · Monday Morning Briefing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Every Monday 08:00",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BIQ_API_URL }}/api/investigations/anomaly",
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{ $env.BIQ_API_KEY }}"
+              }
+            ]
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "name": "POST /api/investigations/anomaly",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "any-high-severity",
+              "leftValue": "={{ ($json.insights || []).some(i => i.severity === 'high') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "Any high-severity insight?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"*Causal BI · Weekly anomaly scan*\\n\\n\" + ($json.insights.filter(i => i.severity === 'high').map(i => `• ${i.kpi} on ${i.dimension}=${i.value} fell ${i.relative_change_pct}% (sessions: ${i.sessions_now})`).join('\\n')) + \"\\n\\nReview: \" + $env.HITL_URL\n}"
+      },
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 220]
+    }
+  ],
+  "connections": {
+    "Every Monday 08:00": {
+      "main": [
+        [
+          {
+            "node": "POST /api/investigations/anomaly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /api/investigations/anomaly": {
+      "main": [
+        [
+          {
+            "node": "Any high-severity insight?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any high-severity insight?": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

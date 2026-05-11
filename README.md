@@ -41,9 +41,12 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 - [x] LangGraph multi-agent graph (data → context → causal → narrative → review → record), with retry loop on review failure
 - [x] Eval harness: pytest with 11 golden tests, integration markers for R-dependent tests
 - [x] Streamlit HITL UI (`make hitl`) listing pending recommendations with full trace, approve/reject writes to `audit.hitl_decisions`
-- [x] FastAPI HTTP layer (`make api-serve`) — `/healthz`, `/readyz`, `/api/kpis`, `/api/recommendations`, `/api/runs`, `/api/investigations`, OpenAPI at `/docs`
-- [x] CI/CD pipeline (`.github/workflows/ci.yml`) — lint + tests with ≥75 % coverage gate (currently 91.4 %) + Docker image builds
+- [x] FastAPI HTTP layer (`make api-serve`) — `/healthz`, `/readyz`, `/api/kpis`, `/api/recommendations`, `/api/runs`, `/api/investigations`, `/api/kg/*`, OpenAPI at `/docs`
+- [x] Knowledge graph operationalisation — every recommendation creates an Insight; every HITL approval creates a Decision; causal estimates produce Hypothesis + Evidence with effect_size on the BACKS edge. `lookup_past_decisions(component)` powers "have we seen this before?"
+- [x] API-key auth (`X-API-Key` header gated by `BIQ_API_KEY` env)
+- [x] CI/CD pipeline (`.github/workflows/ci.yml`) — lint + tests with ≥75 % coverage gate (currently 88.9 %) + Docker image builds
 - [x] Deploy infra: `infra/render.yaml` blueprint + `infra/deploy.md` walkthrough for Neon + Render
+- [x] n8n workflow example (`n8n/workflows/monday-briefing.json`) — weekly anomaly scan posting high-severity findings to Slack
 - [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
 - [ ] Multi-agent orchestration
 - [ ] HITL UI

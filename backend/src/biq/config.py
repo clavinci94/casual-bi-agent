@@ -23,5 +23,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
 
+    # When set, the HTTP API requires X-API-Key: <value> on /api/*.
+    # Unset = open (dev mode).
+    biq_api_key: str | None = None
+
 
 settings = Settings()  # type: ignore[call-arg]

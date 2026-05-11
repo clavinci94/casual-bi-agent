@@ -160,6 +160,21 @@ OpenAPI docs at `/docs`. Routes mirror the existing CLI / MCP / Streamlit interf
 adapters now share the same domain + application layers — replace any one without
 touching the others.
 
-Open next steps for production hardening: SSO for the HITL UI and HTTP API,
-audit retention job in n8n, knowledge-graph operationalisation (kg.* nodes
-for Insight/Decision/Outcome).
+Knowledge graph operationalised: every recommendation lands as a
+`kg.Insight`; every HITL approval lands as a `kg.Decision` with a `LED_TO`
+edge from the insight; the graph agent's causal estimate produces a
+`Hypothesis` + `Evidence` pair with the effect_size on the `BACKS` edge.
+After the observation window, an `Outcome` can be attached via
+`POST /api/kg/outcomes`. Agents query historical context via the new
+`kg_lookup_past_decisions` MCP tool + the LLM investigator now uses it
+to answer "have we seen this pattern before?" before recommending.
+
+API-key auth is in: set `BIQ_API_KEY` in the env, every `/api/*` route
+checks `X-API-Key`. Unset = open (dev mode). `/healthz` and `/readyz`
+stay public for probes.
+
+n8n integration starter: `n8n/workflows/monday-briefing.json` — cron-
+triggered weekly scan that posts high-severity findings to Slack.
+
+Remaining hardening (out of scope for the MVP): SSO/OAuth for the HITL
+UI, audit retention job, log shipping, alerting.

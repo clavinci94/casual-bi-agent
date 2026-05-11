@@ -6,11 +6,12 @@ the root. OpenAPI docs are auto-generated at /docs and /redoc.
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from biq import __version__
 from biq.api import health, investigations, kg, kpi, recommendations, runs
+from biq.api.auth import require_api_key
 
 app = FastAPI(
     title="Causal BI",
@@ -29,15 +30,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Health endpoints at root (Render / k8s style)
+# Health endpoints at root (Render / k8s style) — never gated
 app.include_router(health.router)
 
-# Domain routes under /api
-app.include_router(recommendations.router, prefix="/api")
-app.include_router(runs.router, prefix="/api")
-app.include_router(kpi.router, prefix="/api")
-app.include_router(investigations.router, prefix="/api")
-app.include_router(kg.router, prefix="/api")
+# Domain routes under /api — gated by X-API-Key when BIQ_API_KEY is set
+_protected = [Depends(require_api_key)]
+app.include_router(recommendations.router, prefix="/api", dependencies=_protected)
+app.include_router(runs.router, prefix="/api", dependencies=_protected)
+app.include_router(kpi.router, prefix="/api", dependencies=_protected)
+app.include_router(investigations.router, prefix="/api", dependencies=_protected)
+app.include_router(kg.router, prefix="/api", dependencies=_protected)
 
 
 @app.get("/", include_in_schema=False)
