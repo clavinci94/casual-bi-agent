@@ -123,10 +123,20 @@ Three demo paths now work end-to-end:
 All three share `biq.audit` (where applicable) and `biq.tools.*`. The MCP server is a thin
 wrapper — single source of truth for tools stays in `biq.tools.*`.
 
-R causal layer is now live: `r-service/` runs CausalImpact via Plumber on port 8765,
-exposed as `biq.tools.causal.causal_impact_conversion` and the MCP tool of the same name.
-Smoke-test (`make causal-smoke`) verifies it recovers a clearly-negative rel_effect
-with p<0.05 on the simulated mobile_checkout_v2 window using desktop+tablet as controls.
+Now feature-complete for the MVP:
 
-Not yet built: LangGraph multi-agent orchestration, HITL UI, frontend, deploy.
-See `README.md` Roadmap.
+- LangGraph multi-agent graph (`biq.agents.graph`): START → data → context → causal
+  → narrative → review (loop if rules fail) → record → END. Deterministic; complements
+  the LLM-driven `biq.agents.investigator`.
+- Eval harness (`backend/tests/`): 11 golden tests, integration tests marked
+  `@pytest.mark.causal` so they skip without R service. Run: `make test`.
+- HITL UI (`biq.ui.hitl`, Streamlit): lists pending `audit.recommendations` with
+  full investigation trace, approve/reject writes to `audit.hitl_decisions`.
+  Run: `make hitl`.
+- Deploy infra: `infra/render.yaml` Blueprint (api + r-causal + hitl services),
+  `infra/deploy.md` walks through Neon + Render. Dockerfiles: `backend/Dockerfile`
+  (FastAPI), `backend/Dockerfile.streamlit` (HITL).
+
+Open next steps for production hardening: FastAPI HTTP entrypoint (`biq.api.app`)
+referenced by `backend/Dockerfile` but not yet implemented, SSO for the HITL UI,
+audit retention job in n8n, CI in GitHub Actions.

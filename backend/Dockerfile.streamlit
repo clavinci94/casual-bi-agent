@@ -1,0 +1,20 @@
+# Streamlit HITL UI image. Same Python deps as backend, different entrypoint.
+
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+WORKDIR /app
+
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+COPY backend/src ./src
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PORT=8501
+EXPOSE 8501
+
+CMD ["sh", "-c", "uv run streamlit run src/biq/ui/hitl.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true"]

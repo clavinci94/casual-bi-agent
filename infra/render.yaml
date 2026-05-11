@@ -1,0 +1,48 @@
+# Render Blueprint for Causal BI Agent.
+#
+# Provisions:
+#   - api:       FastAPI backend (the agent loop)
+#   - r-causal:  CausalImpact service (R + Plumber)
+#   - hitl:      Streamlit HITL approval UI
+#
+# Database is external (Neon). Set DATABASE_URL via Render's
+# environment-group "biq-secrets" with the Neon connection string.
+#
+# After connecting this repo to Render:
+#   1. Create an env group called "biq-secrets" with:
+#        DATABASE_URL=postgresql+psycopg://...neon.tech/...?sslmode=require
+#        ANTHROPIC_API_KEY=sk-ant-...
+#   2. Render Blueprint -> link to this repo -> apply.
+
+services:
+  - type: web
+    name: biq-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: R_BASE_URL
+        fromService:
+          type: pserv
+          name: biq-r-causal
+          property: hostport
+      - fromGroup: biq-secrets
+
+  - type: pserv
+    name: biq-r-causal
+    runtime: docker
+    dockerfilePath: ./r-service/Dockerfile
+    plan: starter
+    autoDeploy: true
+
+  - type: web
+    name: biq-hitl
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.streamlit
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - fromGroup: biq-secrets

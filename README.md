@@ -38,7 +38,10 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 - [x] LLM-driven investigator agent (Claude tool-use, prompt-cached, fully audited)
 - [x] MCP server (`causal-bi`): tools + resources exposed for Claude Desktop / Cursor / n8n / Ollama
 - [x] R + `CausalImpact` service (Plumber in Docker, port 8765); Python tool + MCP exposure; smoke-tested against the simulated mobile_v2 ground truth
-- [ ] LangGraph multi-agent orchestration (Orchestrator → Data → Causal → Narrative → Review)
+- [x] LangGraph multi-agent graph (data → context → causal → narrative → review → record), with retry loop on review failure
+- [x] Eval harness: pytest with 11 golden tests, integration markers for R-dependent tests
+- [x] Streamlit HITL UI (`make hitl`) listing pending recommendations with full trace, approve/reject writes to `audit.hitl_decisions`
+- [x] Deploy infra: `infra/render.yaml` blueprint + `infra/deploy.md` walkthrough for Neon + Render
 - [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
 - [ ] Multi-agent orchestration
 - [ ] HITL UI
