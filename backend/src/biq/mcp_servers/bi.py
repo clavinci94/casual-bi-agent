@@ -37,6 +37,7 @@ mcp: FastMCP = FastMCP("causal-bi")
 # Tools
 # =================================================================
 
+
 @mcp.tool()
 def kpi_query(
     view: str,
@@ -123,6 +124,7 @@ def causal_impact_conversion(
 # =================================================================
 # Resources — read-only context the client can pull into its prompt
 # =================================================================
+
 
 @mcp.resource("kpi://catalog")
 def kpi_catalog() -> str:

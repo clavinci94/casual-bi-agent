@@ -37,7 +37,9 @@ def main() -> None:
         question=args.question,
     )
 
-    summary = {k: v for k, v in result.items() if k not in ("anomalies", "treatments", "causal_estimate")}
+    summary = {
+        k: v for k, v in result.items() if k not in ("anomalies", "treatments", "causal_estimate")
+    }
     print(json.dumps(summary, indent=2, default=str))
 
     n_anom = len(result.get("anomalies", []))

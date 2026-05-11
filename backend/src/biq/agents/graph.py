@@ -56,6 +56,7 @@ class State(TypedDict, total=False):
 
 # --- Nodes ---------------------------------------------------------------
 
+
 def data_node(state: State) -> dict[str, Any]:
     pre_s, pre_e = state["pre_period"]
     post_s, post_e = state["post_period"]
@@ -77,12 +78,14 @@ def data_node(state: State) -> dict[str, Any]:
             continue
         rel = (post_cr - pre_cr) / pre_cr
         if abs(rel) > 0.10:
-            anomalies.append({
-                "device": device,
-                "pre_conv_rate": pre_cr,
-                "post_conv_rate": post_cr,
-                "rel_change": rel,
-            })
+            anomalies.append(
+                {
+                    "device": device,
+                    "pre_conv_rate": pre_cr,
+                    "post_conv_rate": post_cr,
+                    "rel_change": rel,
+                }
+            )
 
     return {"anomalies": anomalies}
 
@@ -110,9 +113,7 @@ def causal_node(state: State) -> dict[str, Any]:
     return {"causal_estimate": estimate}
 
 
-def _pick_treatment(
-    treatments: list[dict[str, Any]], target_device: str, post_start: str
-) -> str:
+def _pick_treatment(treatments: list[dict[str, Any]], target_device: str, post_start: str) -> str:
     """Pick the most plausible candidate release for the narrative.
 
     Priority:
@@ -121,7 +122,8 @@ def _pick_treatment(
       3. Anything else
     """
     matching = [
-        t for t in treatments
+        t
+        for t in treatments
         if t.get("release_id") and target_device.lower() in (t.get("component") or "").lower()
     ]
     if not matching:
@@ -230,6 +232,7 @@ def record_node(state: State) -> dict[str, Any]:
 
 # --- Routing -------------------------------------------------------------
 
+
 def _route_after_review(state: State) -> Literal["narrative", "record", "end"]:
     if state.get("review_passed"):
         return "record"
@@ -239,6 +242,7 @@ def _route_after_review(state: State) -> Literal["narrative", "record", "end"]:
 
 
 # --- Build + run ---------------------------------------------------------
+
 
 def build_graph():
     g = StateGraph(State)

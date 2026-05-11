@@ -41,16 +41,17 @@ def _fetch_conversion_series(start: date, end: date, devices: list[str]) -> pd.D
         "ORDER BY day, device"
     )
     with engine.connect() as conn:
-        df = pd.read_sql(
-            sql, conn, params={"start": start, "end": end, "devices": list(devices)}
-        )
+        df = pd.read_sql(sql, conn, params={"start": start, "end": end, "devices": list(devices)})
     if df.empty:
         return df
 
     df["conv_rate"] = df["conversions"] / df["sessions"].replace(0, 1)
-    return df.pivot_table(
-        index="day", columns="device", values="conv_rate"
-    ).sort_index().ffill().fillna(0)
+    return (
+        df.pivot_table(index="day", columns="device", values="conv_rate")
+        .sort_index()
+        .ffill()
+        .fillna(0)
+    )
 
 
 def causal_impact_conversion(
@@ -91,9 +92,7 @@ def causal_impact_conversion(
         "post_period": [post_s.isoformat(), post_e.isoformat()],
     }
     if controls:
-        body["X"] = {
-            c: wide[c].tolist() for c in controls if c in wide.columns
-        }
+        body["X"] = {c: wide[c].tolist() for c in controls if c in wide.columns}
 
     resp = httpx.post(f"{R_BASE_URL}/causal-impact", json=body, timeout=_TIMEOUT_S)
     if resp.status_code != 200:

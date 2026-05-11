@@ -24,6 +24,7 @@ dev = [
     "mypy>=1.13",
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
 ]
 
 [tool.pytest.ini_options]
@@ -31,6 +32,32 @@ testpaths = ["tests"]
 addopts = "-ra -q"
 markers = [
     "causal: integration test requiring the R service on port 8765",
+]
+
+[tool.coverage.run]
+source = ["src/biq"]
+branch = true
+omit = [
+    # Interface layers — covered by integration smoke tests
+    "src/biq/ui/*",
+    "src/biq/mcp_servers/*",
+    "src/biq/api/*",
+    # LLM-driven path needs an API key — covered by `make investigate` smoke
+    "src/biq/agents/investigator.py",
+    # R-dependent — covered by `make causal-smoke` and @causal pytest marker
+    "src/biq/tools/causal.py",
+    # Synthetic-data generators (fixture code, exercised by simulate/seed scripts)
+    "src/biq/seeders/*",
+]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
 ]
 
 [tool.ruff]

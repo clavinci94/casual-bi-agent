@@ -15,7 +15,6 @@ import pandas as pd
 from sqlalchemy import text
 
 from biq.audit import (
-    RunContext,
     finish_step,
     log_recommendation,
     log_step,
@@ -112,9 +111,7 @@ def detect_by_device(
         rows=len(df_now) + len(df_prior),
     )
 
-    merged = df_now.merge(
-        df_prior, on="device", suffixes=("_now", "_prior"), how="outer"
-    ).fillna(0)
+    merged = df_now.merge(df_prior, on="device", suffixes=("_now", "_prior"), how="outer").fillna(0)
 
     insights: list[Insight] = []
     for _, r in merged.iterrows():
@@ -151,10 +148,7 @@ def detect_by_device(
 def narrate(insight: Insight) -> tuple[str, str]:
     direction = "fell" if insight.relative_change < 0 else "rose"
     rel_pct = abs(insight.relative_change) * 100
-    title = (
-        f"conversion_rate on {insight.value} {direction} "
-        f"{rel_pct:.1f}% ({insight.severity})"
-    )
+    title = f"conversion_rate on {insight.value} {direction} {rel_pct:.1f}% ({insight.severity})"
     body = (
         f"Conversion rate for {insight.dimension}={insight.value} {direction} "
         f"from {insight.metric_prior * 100:.2f}% to {insight.metric_now * 100:.2f}% "

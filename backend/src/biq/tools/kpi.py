@@ -20,6 +20,7 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     """to_dict variant that round-trips through JSON so datetimes etc become strings."""
     return json.loads(df.to_json(orient="records", date_format="iso"))
 
+
 ALLOWED_VIEWS: set[str] = {
     "conversion_rate_daily",
     "aov_daily",
@@ -75,7 +76,7 @@ def kpi_query(
 
     return {
         "rows": _df_to_records(df.head(limit)),
-        "row_count": int(len(df)),
+        "row_count": len(df),
         "columns": list(df.columns),
         "truncated": bool(len(df) > limit),
     }

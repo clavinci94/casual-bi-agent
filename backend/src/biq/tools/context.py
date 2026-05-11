@@ -32,7 +32,7 @@ def releases_in_window(start: str, end: str) -> dict[str, Any]:
     )
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params={"start": start, "end": end})
-    return {"rows": _df_to_records(df), "row_count": int(len(df))}
+    return {"rows": _df_to_records(df), "row_count": len(df)}
 
 
 def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
@@ -47,4 +47,4 @@ def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
     )
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params={"start": start, "end": end})
-    return {"rows": _df_to_records(df), "row_count": int(len(df))}
+    return {"rows": _df_to_records(df), "row_count": len(df)}

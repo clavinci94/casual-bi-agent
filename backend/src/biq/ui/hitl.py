@@ -23,6 +23,7 @@ st.set_page_config(page_title="Causal BI · HITL", layout="wide")
 
 # ---- Data access ---------------------------------------------------------
 
+
 @st.cache_data(ttl=10)
 def _load_recommendations(status: str | None) -> pd.DataFrame:
     sql = """
@@ -37,7 +38,9 @@ def _load_recommendations(status: str | None) -> pd.DataFrame:
     """
     where = "WHERE r.status = :status" if status else ""
     with engine.connect() as conn:
-        return pd.read_sql(text(sql.format(where=where)), conn, params={"status": status} if status else {})
+        return pd.read_sql(
+            text(sql.format(where=where)), conn, params={"status": status} if status else {}
+        )
 
 
 def _load_run_steps(run_id: str) -> pd.DataFrame:
@@ -149,4 +152,6 @@ for _, rec in df.iterrows():
                         _load_recommendations.clear()
                         st.rerun()
         else:
-            st.info(f"This recommendation has status `{rec['status']}`. Re-open is not implemented.")
+            st.info(
+                f"This recommendation has status `{rec['status']}`. Re-open is not implemented."
+            )

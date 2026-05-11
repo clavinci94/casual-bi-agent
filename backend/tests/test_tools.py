@@ -10,9 +10,7 @@ from biq.tools import kpi as kpi_tools
 
 
 def test_kpi_query_rejects_unknown_view(db_ready: bool) -> None:
-    result = kpi_tools.kpi_query(
-        view="not_a_view", start="2018-04-01", end="2018-05-01"
-    )
+    result = kpi_tools.kpi_query(view="not_a_view", start="2018-04-01", end="2018-05-01")
     assert "error" in result
     assert "not allowed" in result["error"]
 

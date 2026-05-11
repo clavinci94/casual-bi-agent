@@ -123,10 +123,22 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "target_device": {"type": "string", "enum": ["mobile", "desktop", "tablet"]},
-                "pre_start": {"type": "string", "description": "ISO date, pre-period start (inclusive)."},
-                "pre_end": {"type": "string", "description": "ISO date, pre-period end (inclusive)."},
-                "post_start": {"type": "string", "description": "ISO date, post-period start (inclusive)."},
-                "post_end": {"type": "string", "description": "ISO date, post-period end (inclusive)."},
+                "pre_start": {
+                    "type": "string",
+                    "description": "ISO date, pre-period start (inclusive).",
+                },
+                "pre_end": {
+                    "type": "string",
+                    "description": "ISO date, pre-period end (inclusive).",
+                },
+                "post_start": {
+                    "type": "string",
+                    "description": "ISO date, post-period start (inclusive).",
+                },
+                "post_end": {
+                    "type": "string",
+                    "description": "ISO date, post-period end (inclusive).",
+                },
                 "controls": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -209,9 +221,7 @@ def investigate(
 ) -> dict[str, Any]:
     """Run the investigator loop. Returns final answer + audit metadata."""
     if not settings.anthropic_api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Add it to .env to run the LLM investigator."
-        )
+        raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env to run the LLM investigator.")
 
     client = Anthropic(api_key=settings.anthropic_api_key)
     tools = _cached_tools()
@@ -253,9 +263,7 @@ def investigate(
                     "input_tokens": usage.input_tokens,
                     "output_tokens": usage.output_tokens,
                     "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": getattr(
-                        usage, "cache_creation_input_tokens", 0
-                    ),
+                    "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
                 },
             )
 

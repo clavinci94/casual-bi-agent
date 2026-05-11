@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 from sqlalchemy import text
 

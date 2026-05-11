@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint:
+    name: Lint + format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync --frozen
+      - name: ruff check
+        working-directory: backend
+        run: uv run ruff check src scripts tests
+      - name: ruff format check
+        working-directory: backend
+        run: uv run ruff format --check src scripts tests
+
+  test:
+    name: Unit + e2e tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: causalbi
+          POSTGRES_USER: causalbi
+          POSTGRES_PASSWORD: causalbi
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U causalbi -d causalbi"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply DB schemas
+        working-directory: backend
+        run: uv run python scripts/run_schemas.py
+
+      - name: Seed minimal dataset
+        working-directory: backend
+        run: uv run python scripts/seed_minimal.py
+
+      - name: pytest with coverage (fail < 75%)
+        working-directory: backend
+        run: |
+          uv run pytest -m "not causal" \
+            --cov=biq \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend/coverage.xml
+
+      - name: Coverage summary
+        if: always()
+        working-directory: backend
+        run: uv run coverage report --fail-under=75
+
+  docker:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build streamlit image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile.streamlit
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build R service image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./r-service
+          file: r-service/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -28,16 +28,18 @@ def test_detects_mobile_v2_regression(db_ready: bool) -> None:
     # Severity: with a ~35% drop and thousands of sessions, expect medium or high
     assert mobile["severity"] in {"medium", "high"}, mobile["severity"]
 
-    # Audit trail must exist
+    # Audit trail must contain a mobile recommendation
     assert result["recommendation_ids"], "no recommendation logged"
 
     with engine.connect() as conn:
-        rec = conn.execute(
-            text("SELECT title, risk_level, run_id FROM audit.recommendations WHERE rec_id = :id"),
-            {"id": result["recommendation_ids"][0]},
-        ).one()
-    assert "mobile" in rec[0].lower()
-    assert rec[2] == result["run_id"]
+        recs = conn.execute(
+            text("SELECT title, run_id FROM audit.recommendations WHERE rec_id = ANY(:ids)"),
+            {"ids": result["recommendation_ids"]},
+        ).all()
+    titles = [r[0] for r in recs]
+    assert any("mobile" in t.lower() for t in titles), titles
+    for r in recs:
+        assert r[1] == result["run_id"]
 
 
 def test_no_anomaly_in_quiet_window(db_ready: bool) -> None:

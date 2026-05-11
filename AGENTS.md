@@ -30,19 +30,35 @@ causal-bi/
 ├── AGENTS.md           ← you are here
 ├── README.md
 ├── docs/
-│   ├── architecture.md     5-layer architecture, MCP topology, data flow
-│   ├── kpi-catalog.yaml    semantic layer — source of truth for KPI definitions
-│   └── decisions/          ADRs (architecture decision records)
-├── backend/                FastAPI + LangGraph + MCP servers (TBD)
+│   ├── architecture.md         5-layer data + MCP topology
+│   ├── clean-architecture.md   Domain / Application / Interface mapping
+│   ├── kpi-catalog.yaml        semantic layer — source of truth for KPIs
+│   ├── mcp-clients.md          Claude Desktop / Cursor / n8n / Ollama setup
+│   └── decisions/              ADRs
+├── backend/
+│   ├── src/biq/
+│   │   ├── tools/              DOMAIN: kpi, context, causal
+│   │   ├── seeders/            DOMAIN: synthetic data generators
+│   │   ├── agents/             APPLICATION: anomaly, investigator, graph
+│   │   ├── audit.py            APPLICATION: cross-cutting audit
+│   │   ├── mcp_servers/        INTERFACE: MCP wrappers
+│   │   ├── ui/                 INTERFACE: Streamlit HITL
+│   │   ├── api/                INTERFACE: FastAPI (TBD)
+│   │   ├── db.py + config.py   INFRASTRUCTURE
+│   ├── scripts/                CLI entry points
+│   └── tests/                  pytest, 88%+ coverage, @causal marker for R-dep
 ├── db/
-│   └── schemas/            SQL DDL per logical schema
+│   └── schemas/                SQL DDL per logical schema
+├── r-service/                  Plumber + CausalImpact
 ├── data/
-│   ├── seed/               Olist CSVs (gitignored) + simulators
-│   └── notebooks/          exploration
-├── n8n/
-│   └── workflows/          exported n8n flow JSONs
-└── infra/                  Render + Neon configs
+│   ├── seed/                   Olist CSVs (gitignored)
+│   └── notebooks/              exploration
+├── n8n/workflows/              exported n8n flow JSONs
+├── infra/                      render.yaml + deploy.md
+└── .github/workflows/ci.yml    lint + tests (≥75% cov) + Docker builds
 ```
+
+Strict layering — see `docs/clean-architecture.md` for the dependency rules.
 
 ## Architecture in one paragraph
 

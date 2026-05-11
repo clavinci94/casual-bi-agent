@@ -28,7 +28,9 @@ def main() -> None:
         max_iterations=args.max_iterations,
     )
 
-    print(json.dumps({k: v for k, v in result.items() if k != "final_answer"}, indent=2, default=str))
+    print(
+        json.dumps({k: v for k, v in result.items() if k != "final_answer"}, indent=2, default=str)
+    )
 
     if result.get("final_answer"):
         print("\n" + "=" * 70)
