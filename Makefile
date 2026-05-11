@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke backend-sync format lint test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl backend-sync format lint test
 
 help:
 	@echo "Targets:"
@@ -22,6 +22,8 @@ help:
 	@echo "  r-down        Stop the R service"
 	@echo "  r-logs        Tail R service logs"
 	@echo "  causal-smoke  Run CausalImpact on the mobile_v2 ground truth"
+	@echo "  graph-investigate  Run the LangGraph multi-agent investigator"
+	@echo "  hitl          Launch the Streamlit HITL approval UI"
 	@echo "  backend-sync  uv sync inside backend/"
 	@echo "  format        ruff format + autofix"
 	@echo "  lint          ruff check + mypy"
@@ -81,6 +83,12 @@ r-logs:
 
 causal-smoke:
 	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" uv run python scripts/causal_smoke.py
+
+graph-investigate:
+	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" uv run python scripts/graph_investigate.py $(GRAPH_ARGS)
+
+hitl:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run streamlit run src/biq/ui/hitl.py
 
 db-reset:
 	docker compose down -v
