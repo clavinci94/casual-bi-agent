@@ -111,10 +111,16 @@ psql postgresql://causalbi:causalbi@localhost:5433/causalbi \
 ## Status
 
 Early MVP. Working vertical slice: schemas → Olist seed → simulator (with ground-truth
-mobile_checkout_v2 anomaly) → KPI views → heuristic anomaly detector → audit log.
+mobile_checkout_v2 anomaly) → KPI views → heuristic anomaly detector → LLM-driven
+investigator (Claude tool-use, prompt-cached) → audit log.
 
-Verifiable end-to-end: `make db-seed && make detect-anomalies DETECT_ARGS="--date 2018-05-05"`
-flags the mobile conversion drop and writes a recommendation to `audit.recommendations`.
+Two demo paths now work end-to-end:
+- `make detect-anomalies DETECT_ARGS="--date 2018-05-05"` (no LLM, deterministic)
+- `make investigate Q="What happened to mobile conversion in early May 2018?"` (Claude Sonnet 4.6 with tool use)
 
-Next: SQL-MCP server, LLM-driven planner agent, R `CausalImpact` integration. See
-`README.md` Roadmap.
+Both share `biq.audit` and `biq.tools.*`. Tools (`kpi_query`, `releases_in_window`,
+`campaigns_in_window`, `record_finding`) will be wrapped as MCP servers next so external
+LLMs can also reach them.
+
+Not yet built: MCP server wrappers, R `CausalImpact` integration, LangGraph multi-agent
+orchestration, HITL UI, frontend, deploy. See `README.md` Roadmap.

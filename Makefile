@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies backend-sync format lint test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate backend-sync format lint test
 
 help:
 	@echo "Targets:"
@@ -14,6 +14,7 @@ help:
 	@echo "  db-seed       db-schemas + db-load + db-simulate (full pipeline)"
 	@echo "  db-reset      Wipe volume, restart, reapply schemas"
 	@echo "  detect-anomalies  Run the heuristic anomaly detector"
+	@echo "  investigate Q=\"...\"  Run the LLM-driven investigator (requires ANTHROPIC_API_KEY)"
 	@echo "  backend-sync  uv sync inside backend/"
 	@echo "  format        ruff format + autofix"
 	@echo "  lint          ruff check + mypy"
@@ -48,6 +49,10 @@ db-seed: db-schemas db-load db-simulate
 
 detect-anomalies:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/detect_anomalies.py $(DETECT_ARGS)
+
+investigate:
+	@if [ -z "$(Q)" ]; then echo 'Usage: make investigate Q="your question here"'; exit 1; fi
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/investigate.py "$(Q)" $(INVESTIGATE_ARGS)
 
 db-reset:
 	docker compose down -v

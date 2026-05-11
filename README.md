@@ -35,8 +35,9 @@ Read [`AGENTS.md`](AGENTS.md) before doing anything.
 - [x] KPI views (`02_kpi.sql`): 7 working + `churn_30d` placeholder
 - [x] Audit logging module (`audit.*` writes)
 - [x] First agent: heuristic anomaly detector — finds the simulated mobile bug
-- [ ] First MCP server: SQL tool against `kpi.*`
-- [ ] LLM-driven planner agent (LangGraph + Claude)
+- [x] LLM-driven investigator agent (Claude tool-use, prompt-cached, fully audited)
+- [ ] First MCP server: wrap existing tools as MCP for external LLMs
+- [ ] LangGraph multi-agent orchestration (Orchestrator → Data → Causal → Narrative → Review)
 - [ ] First causal demo: `CausalImpact` on the rediscovered mobile_checkout_v2 treatment
 - [ ] Multi-agent orchestration
 - [ ] HITL UI
@@ -52,6 +53,9 @@ make db-up && make backend-sync
 make db-seed              # schemas + Olist load + simulated extensions
 make detect-anomalies DETECT_ARGS="--date 2018-05-05"
 # expected: mobile conversion drop flagged as 'high' severity
+
+# LLM-driven investigator (needs ANTHROPIC_API_KEY in .env)
+make investigate Q="What happened to mobile conversion rate in early May 2018?"
 ```
 
 ## Licence
