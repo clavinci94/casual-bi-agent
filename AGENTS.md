@@ -123,5 +123,10 @@ Three demo paths now work end-to-end:
 All three share `biq.audit` (where applicable) and `biq.tools.*`. The MCP server is a thin
 wrapper — single source of truth for tools stays in `biq.tools.*`.
 
-Not yet built: R `CausalImpact` integration, LangGraph multi-agent orchestration, HITL UI,
-frontend, deploy. See `README.md` Roadmap.
+R causal layer is now live: `r-service/` runs CausalImpact via Plumber on port 8765,
+exposed as `biq.tools.causal.causal_impact_conversion` and the MCP tool of the same name.
+Smoke-test (`make causal-smoke`) verifies it recovers a clearly-negative rel_effect
+with p<0.05 on the simulated mobile_checkout_v2 window using desktop+tablet as controls.
+
+Not yet built: LangGraph multi-agent orchestration, HITL UI, frontend, deploy.
+See `README.md` Roadmap.

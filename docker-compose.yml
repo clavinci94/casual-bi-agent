@@ -15,5 +15,16 @@ services:
       interval: 5s
       retries: 10
 
+  r-causal:
+    build:
+      context: ./r-service
+      dockerfile: Dockerfile
+    container_name: causalbi-r
+    ports:
+      - "8765:8765"
+    volumes:
+      # Mounted so iterating on api.R doesn't require a rebuild.
+      - ./r-service:/app
+
 volumes:
   causalbi_pgdata:

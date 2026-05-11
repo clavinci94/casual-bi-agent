@@ -30,6 +30,7 @@ from biq.audit import (
     run_context,
 )
 from biq.config import settings
+from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
 from biq.tools import kpi as kpi_tools
 
@@ -46,10 +47,12 @@ RULES
 - Read KPIs only via the kpi_query tool. The kpi.* views are the governed
   semantic layer; never invent or estimate numbers yourself.
 - When you detect a drop or spike, cross-reference releases_in_window
-  and campaigns_in_window for the same period before concluding.
-- Cite the data in your reasoning: period, magnitude, segment, sample size.
-- Distinguish observation from causation. Say "correlates with" or
-  "coincides with" — never "caused by" — until causal analysis is run.
+  and campaigns_in_window for the same period to find candidate treatments.
+- For an evidence-backed causal claim, call causal_impact_conversion with
+  a clear pre/post period and synthetic-control devices. Only then upgrade
+  language from "correlates with" to "caused by ~X% (95% CI [...])".
+- Cite the data in your reasoning: period, magnitude, segment, sample size,
+  p-value when available.
 - Call record_finding once per distinct, evidence-backed conclusion.
   Set risk_level=high only when both magnitude and sample size warrant it.
 - Be concise. Managers read the title and first sentence."""
@@ -108,6 +111,32 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "causal_impact_conversion",
+        "description": (
+            "Estimate the causal effect of a treatment on a device's conversion rate "
+            "using CausalImpact (Bayesian structural time series) with optional "
+            "synthetic controls from other devices. Use after you have located a "
+            "candidate treatment via releases_in_window or campaigns_in_window. "
+            "Returns relative effect with 95% CI and p-value."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target_device": {"type": "string", "enum": ["mobile", "desktop", "tablet"]},
+                "pre_start": {"type": "string", "description": "ISO date, pre-period start (inclusive)."},
+                "pre_end": {"type": "string", "description": "ISO date, pre-period end (inclusive)."},
+                "post_start": {"type": "string", "description": "ISO date, post-period start (inclusive)."},
+                "post_end": {"type": "string", "description": "ISO date, post-period end (inclusive)."},
+                "controls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Other devices to use as synthetic controls.",
+                },
+            },
+            "required": ["target_device", "pre_start", "pre_end", "post_start", "post_end"],
+        },
+    },
+    {
         "name": "record_finding",
         "description": (
             "Persist a finding as a recommendation in the audit log. "
@@ -137,6 +166,8 @@ def _dispatch(name: str, params: dict[str, Any], run_id: str) -> dict[str, Any]:
         return ctx_tools.releases_in_window(**params)
     if name == "campaigns_in_window":
         return ctx_tools.campaigns_in_window(**params)
+    if name == "causal_impact_conversion":
+        return causal_tools.causal_impact_conversion(**params)
     if name == "record_finding":
         rec_id = log_recommendation(
             run_id=run_id,

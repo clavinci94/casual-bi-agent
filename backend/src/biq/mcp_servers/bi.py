@@ -22,6 +22,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from biq import __version__
+from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
 from biq.tools import kpi as kpi_tools
 
@@ -84,6 +85,39 @@ def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
         end: ISO date (exclusive), format YYYY-MM-DD.
     """
     return ctx_tools.campaigns_in_window(start=start, end=end)
+
+
+@mcp.tool()
+def causal_impact_conversion(
+    target_device: str,
+    pre_start: str,
+    pre_end: str,
+    post_start: str,
+    post_end: str,
+    controls: list[str] | None = None,
+) -> dict[str, Any]:
+    """Estimate the causal effect of a treatment on a device's conversion rate.
+
+    Uses CausalImpact (Bayesian structural time series) running in the R
+    service, with optional synthetic control from other devices.
+
+    Args:
+        target_device: 'mobile' | 'desktop' | 'tablet'.
+        pre_start: ISO date of pre-period start (inclusive).
+        pre_end: ISO date of pre-period end (inclusive).
+        post_start: ISO date of post-period start (inclusive).
+        post_end: ISO date of post-period end (inclusive).
+        controls: Optional list of other devices to use as control series
+            (e.g. ["desktop", "tablet"] to estimate a mobile-specific effect).
+    """
+    return causal_tools.causal_impact_conversion(
+        target_device=target_device,
+        pre_start=pre_start,
+        pre_end=pre_end,
+        post_start=post_start,
+        post_end=post_end,
+        controls=controls,
+    )
 
 
 # =================================================================

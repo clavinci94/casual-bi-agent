@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate mcp-serve mcp-inspect mcp-smoke backend-sync format lint test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke backend-sync format lint test
 
 help:
 	@echo "Targets:"
@@ -18,6 +18,10 @@ help:
 	@echo "  mcp-serve     Run the causal-bi MCP server (stdio)"
 	@echo "  mcp-inspect   Open the MCP Inspector GUI against the server"
 	@echo "  mcp-smoke     Programmatic smoke test of the MCP server"
+	@echo "  r-up          Build + start the R CausalImpact service (port 8765)"
+	@echo "  r-down        Stop the R service"
+	@echo "  r-logs        Tail R service logs"
+	@echo "  causal-smoke  Run CausalImpact on the mobile_v2 ground truth"
 	@echo "  backend-sync  uv sync inside backend/"
 	@echo "  format        ruff format + autofix"
 	@echo "  lint          ruff check + mypy"
@@ -65,6 +69,18 @@ mcp-inspect:
 
 mcp-smoke:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/mcp_smoke.py
+
+r-up:
+	docker compose up -d --build r-causal
+
+r-down:
+	docker compose stop r-causal
+
+r-logs:
+	docker compose logs -f r-causal
+
+causal-smoke:
+	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" uv run python scripts/causal_smoke.py
 
 db-reset:
 	docker compose down -v
