@@ -157,7 +157,16 @@ def log_recommendation(
     confidence: float,
     action_type: str,
     risk_level: str,
+    *,
+    component: str | None = None,
+    period: tuple[str, str] | None = None,
+    kg_extra: dict[str, Any] | None = None,
 ) -> str:
+    """Persist a recommendation AND mirror it as a kg.Insight node.
+
+    The Insight is what the learning-loop queries — its external_ref is
+    `rec:<rec_id>` and it carries component/severity/period in properties.
+    """
     rec_id = str(uuid.uuid4())
     with engine.begin() as conn:
         conn.execute(
@@ -176,4 +185,23 @@ def log_recommendation(
                 "risk": risk_level,
             },
         )
+
+    # KG mirror — imported here to avoid a top-level circular dep, since
+    # tools/kg.py imports from biq.db which doesn't touch audit.
+    try:
+        from biq.tools import kg as kg_tools
+
+        kg_tools.record_insight_for_recommendation(
+            rec_id=rec_id,
+            title=title,
+            component=component,
+            severity=risk_level,
+            period=period,
+            run_id=run_id,
+            extra=kg_extra,
+        )
+    except Exception:
+        # KG failures must never block the audit write
+        pass
+
     return rec_id

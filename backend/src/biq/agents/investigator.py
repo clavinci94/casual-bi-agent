@@ -32,6 +32,7 @@ from biq.audit import (
 from biq.config import settings
 from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
+from biq.tools import kg as kg_tools
 from biq.tools import kpi as kpi_tools
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
@@ -111,6 +112,25 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kg_lookup_past_decisions",
+        "description": (
+            "Look up past insights, decisions, and outcomes for a component. "
+            "Call this FIRST when investigating a recurring issue — past "
+            "decisions and their measured outcomes inform what to recommend now."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string",
+                    "description": "e.g. 'mobile_checkout' or 'device=mobile'",
+                },
+                "days_back": {"type": "integer", "default": 180, "minimum": 1, "maximum": 730},
+            },
+            "required": ["component"],
+        },
+    },
+    {
         "name": "causal_impact_conversion",
         "description": (
             "Estimate the causal effect of a treatment on a device's conversion rate "
@@ -180,6 +200,8 @@ def _dispatch(name: str, params: dict[str, Any], run_id: str) -> dict[str, Any]:
         return ctx_tools.campaigns_in_window(**params)
     if name == "causal_impact_conversion":
         return causal_tools.causal_impact_conversion(**params)
+    if name == "kg_lookup_past_decisions":
+        return kg_tools.lookup_past_decisions(**params)
     if name == "record_finding":
         rec_id = log_recommendation(
             run_id=run_id,

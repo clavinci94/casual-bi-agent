@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from biq import __version__
-from biq.api import health, investigations, kpi, recommendations, runs
+from biq.api import health, investigations, kg, kpi, recommendations, runs
 
 app = FastAPI(
     title="Causal BI",
@@ -37,6 +37,7 @@ app.include_router(recommendations.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(kpi.router, prefix="/api")
 app.include_router(investigations.router, prefix="/api")
+app.include_router(kg.router, prefix="/api")
 
 
 @app.get("/", include_in_schema=False)

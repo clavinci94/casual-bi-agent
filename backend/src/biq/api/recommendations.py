@@ -92,12 +92,19 @@ def record_decision(rec_id: str, payload: DecisionRequest) -> DecisionResponse:
         if not exists:
             raise HTTPException(status_code=404, detail="recommendation not found")
 
+        # Generate the hitl_decision id up-front so we can mirror it into the KG.
+        import uuid as _uuid
+
+        hitl_id = str(_uuid.uuid4())
+
         conn.execute(
             text(
-                "INSERT INTO audit.hitl_decisions (rec_id, approver, decision, comment) "
-                "VALUES (:rec, :approver, :dec, :comment)"
+                "INSERT INTO audit.hitl_decisions "
+                "(decision_id, rec_id, approver, decision, comment) "
+                "VALUES (:did, :rec, :approver, :dec, :comment)"
             ),
             {
+                "did": hitl_id,
                 "rec": rec_id,
                 "approver": payload.approver,
                 "dec": payload.decision,
@@ -108,5 +115,19 @@ def record_decision(rec_id: str, payload: DecisionRequest) -> DecisionResponse:
             text("UPDATE audit.recommendations SET status = :s WHERE rec_id = :r"),
             {"s": new_status, "r": rec_id},
         )
+
+    # Mirror Decision into the KG (best-effort).
+    try:
+        from biq.tools import kg as kg_tools
+
+        kg_tools.record_decision_for_hitl(
+            rec_id=rec_id,
+            hitl_decision_id=hitl_id,
+            decision=payload.decision,
+            approver=payload.approver,
+            comment=payload.comment,
+        )
+    except Exception:
+        pass
 
     return DecisionResponse(rec_id=rec_id, decision=payload.decision, status=new_status)

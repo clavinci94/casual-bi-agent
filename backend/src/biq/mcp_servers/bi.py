@@ -24,6 +24,7 @@ from mcp.server.fastmcp import FastMCP
 from biq import __version__
 from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
+from biq.tools import kg as kg_tools
 from biq.tools import kpi as kpi_tools
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -86,6 +87,23 @@ def campaigns_in_window(start: str, end: str) -> dict[str, Any]:
         end: ISO date (exclusive), format YYYY-MM-DD.
     """
     return ctx_tools.campaigns_in_window(start=start, end=end)
+
+
+@mcp.tool()
+def kg_lookup_past_decisions(
+    component: str,
+    days_back: int = 180,
+) -> dict[str, Any]:
+    """Look up past insights, decisions, and measured outcomes for a component.
+
+    Use this BEFORE recording a new finding: if the same anomaly happened
+    before, you can reference what was tried and whether it worked.
+
+    Args:
+        component: e.g. 'mobile_checkout', 'device=mobile', 'paid_search'.
+        days_back: window for the lookup, default 180.
+    """
+    return kg_tools.lookup_past_decisions(component=component, days_back=days_back)
 
 
 @mcp.tool()

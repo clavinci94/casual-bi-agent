@@ -195,6 +195,9 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
                     confidence=0.6 if ins.severity == "high" else 0.4,
                     action_type="read_only",
                     risk_level=ins.severity,
+                    component=f"{ins.dimension}={ins.value}",
+                    period=(str(ins.period_now[0]), str(ins.period_now[1])),
+                    kg_extra={"kpi": ins.kpi, "relative_change": ins.relative_change},
                 )
             )
 

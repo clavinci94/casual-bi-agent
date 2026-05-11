@@ -226,7 +226,25 @@ def record_node(state: State) -> dict[str, Any]:
         confidence=state["confidence"],
         action_type="read_only",
         risk_level=state["risk_level"],
+        component=state.get("target_device"),
+        period=state.get("post_period"),
     )
+
+    # Mirror Hypothesis + Evidence into the KG so future runs can learn.
+    causal = state.get("causal_estimate") or {}
+    target = state.get("target_device") or "unknown"
+    if causal and "rel_effect" in causal:
+        try:
+            from biq.tools import kg as kg_tools
+
+            kg_tools.record_evidence_for_causal_estimate(
+                rec_id_or_run_id=rec_id,
+                component=target,
+                estimate=causal,
+            )
+        except Exception:
+            pass
+
     return {"rec_id": rec_id}
 
 
