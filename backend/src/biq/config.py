@@ -1,9 +1,15 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root = parent of `backend/` = parent.parent.parent.parent from this file
+# (config.py -> biq -> src -> backend -> repo root).
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(_REPO_ROOT / ".env", _REPO_ROOT / "backend" / ".env"),
         extra="ignore",
     )
 

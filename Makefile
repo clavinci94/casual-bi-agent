@@ -40,7 +40,7 @@ db-schemas:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/run_schemas.py
 
 db-load:
-	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/load_olist.py --data-dir $(DATA_DIR)
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/load_olist.py --data-dir $(DATA_DIR) $(LOAD_ARGS)
 
 db-simulate:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/simulate.py --all $(SIM_ARGS)

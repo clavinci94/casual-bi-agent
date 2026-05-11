@@ -125,11 +125,30 @@ def truncate_all() -> None:
     print(f"Truncated: {targets}")
 
 
+DATE_COLS_BY_TABLE: dict[str, list[str]] = {
+    "raw.orders": [
+        "order_purchase_timestamp",
+        "order_approved_at",
+        "order_delivered_carrier_date",
+        "order_delivered_customer_date",
+        "order_estimated_delivery_date",
+    ],
+    "raw.order_items": ["shipping_limit_date"],
+    "raw.reviews": ["review_creation_date", "review_answer_timestamp"],
+}
+
+
 def load_one(csv_path: Path, schema: str, table: str, mapping: dict[str, str]) -> int:
     df = pd.read_csv(csv_path)
     missing = [c for c in mapping if c not in df.columns]
     if missing:
         raise ValueError(f"{csv_path.name}: missing columns {missing}")
+
+    # Convert known timestamp columns to tz-aware datetimes so psycopg
+    # binds them as TIMESTAMPTZ rather than VARCHAR.
+    for col in DATE_COLS_BY_TABLE.get(f"{schema}.{table}", []):
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
 
     df = df.rename(columns=mapping)[list(mapping.values())]
 

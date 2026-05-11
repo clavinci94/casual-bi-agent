@@ -129,7 +129,9 @@ def gen_web_events(rng: np.random.Generator, scale: float) -> pd.DataFrame:
     )
     if len(orders) == 0:
         raise SystemExit("No orders in raw.orders. Run scripts/load_olist.py first.")
-    orders["purchase_ts"] = pd.to_datetime(orders["purchase_ts"], utc=True)
+    # Work in tz-naive UTC internally so numpy datetime arithmetic just works.
+    # Re-localise to UTC right before writing back to timestamptz columns.
+    orders["purchase_ts"] = pd.to_datetime(orders["purchase_ts"], utc=True).dt.tz_localize(None)
 
     if scale < 1.0:
         orders = orders.sample(
@@ -207,16 +209,21 @@ def gen_web_events(rng: np.random.Generator, scale: float) -> pd.DataFrame:
     })
 
     # === Mobile bug: extra failing mobile sessions during the window ===
-    print(f"  mobile_checkout_v2 regression: {MOBILE_BUG_START.date()} -> {MOBILE_BUG_END.date()}")
+    bug_start_naive = MOBILE_BUG_START.tz_localize(None)
+    bug_end_naive = MOBILE_BUG_END.tz_localize(None)
+    print(f"  mobile_checkout_v2 regression: {bug_start_naive.date()} -> {bug_end_naive.date()}")
     days_total = max(1, (end_ts - start_ts).days)
     sessions_per_day = max(1, n_conv // days_total)
-    bug_days = (MOBILE_BUG_END - MOBILE_BUG_START).days
-    n_bug = int(sessions_per_day * bug_days * 0.5)  # +50% mobile sessions = ~40% conv drop
+    bug_days = (bug_end_naive - bug_start_naive).days
+    # Extra failing mobile sessions during the bug window. Multiplier tuned to
+    # produce a clearly-detectable (~40-50%) relative drop in mobile conversion
+    # rate over the 28-day rolling window centred on the bug.
+    n_bug = int(sessions_per_day * bug_days * 2.0)
 
     bug_offsets = rng.integers(
-        0, int((MOBILE_BUG_END - MOBILE_BUG_START).total_seconds()), n_bug
+        0, int((bug_end_naive - bug_start_naive).total_seconds()), n_bug
     )
-    bug_ts_start = MOBILE_BUG_START + pd.to_timedelta(bug_offsets, unit="s")
+    bug_ts_start = bug_start_naive + pd.to_timedelta(bug_offsets, unit="s")
     bug_sids = _new_uuids(n_bug)
     bug_chs = rng.choice(CHANNELS, n_bug, p=CHANNEL_P)
 
@@ -244,6 +251,8 @@ def gen_web_events(rng: np.random.Generator, scale: float) -> pd.DataFrame:
 
     all_events = pd.concat([conv_events, nc_events, bug_events], ignore_index=True)
     all_events = all_events.sort_values("ts").reset_index(drop=True)
+    # Re-localise to UTC for the timestamptz column.
+    all_events["ts"] = pd.to_datetime(all_events["ts"], utc=True)
 
     n_sessions = all_events["session_id"].nunique()
     print(f"  total: {len(all_events):,} events across {n_sessions:,} sessions")
@@ -294,7 +303,8 @@ def gen_support_tickets(rng: np.random.Generator, n: int = 5000) -> pd.DataFrame
         print("  (no delivered orders; skipping tickets)")
         return pd.DataFrame()
 
-    sample["purchase_ts"] = pd.to_datetime(sample["purchase_ts"], utc=True)
+    # Work in tz-naive UTC internally, re-localise at the end.
+    sample["purchase_ts"] = pd.to_datetime(sample["purchase_ts"], utc=True).dt.tz_localize(None)
     n = len(sample)
     print(f"  generating {n:,} tickets")
 
@@ -310,7 +320,7 @@ def gen_support_tickets(rng: np.random.Generator, n: int = 5000) -> pd.DataFrame
     ]
 
     open_offsets = rng.integers(1, 30 * 86400, n)
-    opened = pd.DatetimeIndex(sample["purchase_ts"]).to_numpy() + pd.to_timedelta(
+    opened = sample["purchase_ts"].to_numpy() + pd.to_timedelta(
         open_offsets, unit="s"
     ).to_numpy()
 
@@ -319,7 +329,7 @@ def gen_support_tickets(rng: np.random.Generator, n: int = 5000) -> pd.DataFrame
     resolve_delta_s[~is_resolved] = np.nan
     resolved = opened + pd.to_timedelta(resolve_delta_s, unit="s").to_numpy()
 
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "ticket_id": [f"tkt_{i:06d}" for i in range(n)],
         "customer_id": sample["customer_id"].to_numpy(),
         "order_id": sample["order_id"].to_numpy(),
@@ -329,6 +339,9 @@ def gen_support_tickets(rng: np.random.Generator, n: int = 5000) -> pd.DataFrame
         "resolved_ts": resolved,
         "text": texts,
     })
+    df["opened_ts"] = pd.to_datetime(df["opened_ts"], utc=True)
+    df["resolved_ts"] = pd.to_datetime(df["resolved_ts"], utc=True)
+    return df
 
 
 # ---- IO ----

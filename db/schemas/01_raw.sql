@@ -105,7 +105,7 @@ CREATE INDEX ON raw.reviews (created_ts);
 -- Clickstream: needed for conversion rate, attribution, funnel.
 CREATE TABLE raw.web_events (
     event_id        bigserial PRIMARY KEY,
-    session_id      uuid NOT NULL,
+    session_id      text NOT NULL,
     customer_id     text REFERENCES raw.customers(customer_id),
     ts              timestamptz NOT NULL,
     event_type      text NOT NULL,    -- page_view | add_to_cart | begin_checkout | purchase | error

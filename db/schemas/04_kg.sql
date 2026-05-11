@@ -26,7 +26,7 @@ CREATE SCHEMA IF NOT EXISTS kg;
 -- =================================================================
 
 CREATE TABLE kg.nodes (
-    node_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    node_id         text PRIMARY KEY DEFAULT gen_random_uuid()::text,
     label           text NOT NULL,            -- Customer | Product | Insight | Decision | Outcome | ...
     external_ref    text,                     -- link back to raw.* id where applicable
     properties      jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -37,9 +37,9 @@ CREATE INDEX ON kg.nodes (label);
 CREATE INDEX ON kg.nodes USING GIN (properties);
 
 CREATE TABLE kg.edges (
-    edge_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    from_node       uuid NOT NULL REFERENCES kg.nodes(node_id) ON DELETE CASCADE,
-    to_node         uuid NOT NULL REFERENCES kg.nodes(node_id) ON DELETE CASCADE,
+    edge_id         text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    from_node       text NOT NULL REFERENCES kg.nodes(node_id) ON DELETE CASCADE,
+    to_node         text NOT NULL REFERENCES kg.nodes(node_id) ON DELETE CASCADE,
     label           text NOT NULL,            -- BOUGHT | INFLUENCED | LED_TO | RESULTED_IN | ...
     properties      jsonb NOT NULL DEFAULT '{}'::jsonb,
     -- causal properties when relevant

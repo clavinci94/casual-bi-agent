@@ -7,7 +7,7 @@ CREATE SCHEMA IF NOT EXISTS docs;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE docs.documents (
-    doc_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doc_id          text PRIMARY KEY DEFAULT gen_random_uuid()::text,
     title           text NOT NULL,
     source          text NOT NULL,        -- markdown | support_ticket | review | campaign_brief | external
     source_ref      text,                 -- e.g. ticket_id, review_id, file path
@@ -24,8 +24,8 @@ CREATE INDEX ON docs.documents (created_at);
 CREATE INDEX ON docs.documents USING GIN (tags);
 
 CREATE TABLE docs.chunks (
-    chunk_id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    doc_id          uuid NOT NULL REFERENCES docs.documents(doc_id) ON DELETE CASCADE,
+    chunk_id        text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    doc_id          text NOT NULL REFERENCES docs.documents(doc_id) ON DELETE CASCADE,
     position        int  NOT NULL,
     text            text NOT NULL,
     -- 1536 = OpenAI text-embedding-3-small; swap if model changes
