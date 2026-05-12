@@ -141,14 +141,23 @@ function aggregateToDaily(
 
   const sumOrMean = meta.unit === "currency_chf" || meta.unit === "count";
 
+  const scale = meta.valueScale ?? 1;
   const buckets = new Map<string, number[]>();
   for (const r of rows) {
     const d = r[dateField];
-    const v = r[valueField];
+    const raw = r[valueField];
     if (typeof d !== "string") continue;
-    if (typeof v !== "number" || Number.isNaN(v)) continue;
+    // Postgres numeric arrives as a string from psycopg's default codec —
+    // coerce here so we don't drop every row silently.
+    const num =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number(raw)
+          : Number.NaN;
+    if (!Number.isFinite(num)) continue;
     if (!buckets.has(d)) buckets.set(d, []);
-    buckets.get(d)!.push(v);
+    buckets.get(d)!.push(num * scale);
   }
 
   return [...buckets.entries()]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -39,11 +39,12 @@ class DecisionResponse(BaseModel):
 
 
 _LIST_SQL = """
-    SELECT rec_id, run_id, title, body, confidence, action_type,
-           risk_level, status, created_at
-    FROM audit.recommendations
+    SELECT r.rec_id, r.run_id, r.title, r.body, r.confidence, r.action_type,
+           r.risk_level, r.status, r.created_at
+    FROM audit.recommendations r
+    LEFT JOIN audit.agent_runs ar ON ar.run_id = r.run_id
     {where}
-    ORDER BY created_at DESC
+    ORDER BY r.created_at DESC
     LIMIT :limit
 """
 
@@ -58,13 +59,28 @@ _GET_SQL = """
 @router.get("", response_model=list[Recommendation])
 def list_recommendations(
     status: Literal["pending", "approved", "rejected", "all"] = "pending",
-    limit: int = Query(default=50, le=200),
+    limit: Annotated[int, Query(le=200)] = 50,
+    exclude_triggers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Exclude recommendations whose parent run has any of these "
+                "triggers (e.g. 'test') — keeps pytest fixtures off the HITL queue."
+            ),
+        ),
+    ] = None,
 ) -> list[Recommendation]:
-    where = "" if status == "all" else "WHERE status = :status"
-    sql = text(_LIST_SQL.format(where=where))
+    conditions: list[str] = []
     params: dict[str, object] = {"limit": limit}
     if status != "all":
+        conditions.append("r.status = :status")
         params["status"] = status
+    if exclude_triggers:
+        conditions.append("(ar.trigger IS NULL OR ar.trigger <> ALL(:excluded))")
+        params["excluded"] = list(exclude_triggers)
+
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    sql = text(_LIST_SQL.format(where=where))
     with engine.connect() as conn:
         rows = conn.execute(sql, params).all()
     return [Recommendation(**dict(r._mapping)) for r in rows]

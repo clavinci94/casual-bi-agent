@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -50,14 +50,31 @@ class RunDetail(BaseModel):
 
 
 @router.get("", response_model=list[AgentRun])
-def list_runs(limit: int = Query(default=50, le=200)) -> list[AgentRun]:
+def list_runs(
+    limit: Annotated[int, Query(le=200)] = 50,
+    exclude_triggers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Trigger values to filter out, e.g. exclude_triggers=test. "
+                "Useful for keeping pytest fixtures off the dashboard."
+            ),
+        ),
+    ] = None,
+) -> list[AgentRun]:
+    params: dict[str, object] = {"limit": limit}
+    where = ""
+    if exclude_triggers:
+        where = "WHERE trigger <> ALL(:excluded)"
+        params["excluded"] = list(exclude_triggers)
     sql = text(
-        "SELECT run_id, user_id, trigger, prompt, status, "
-        "       started_at, finished_at, cost_usd "
-        "FROM audit.agent_runs ORDER BY started_at DESC LIMIT :limit"
+        f"SELECT run_id, user_id, trigger, prompt, status, "
+        f"       started_at, finished_at, cost_usd "
+        f"FROM audit.agent_runs {where} "
+        f"ORDER BY started_at DESC LIMIT :limit"
     )
     with engine.connect() as conn:
-        rows = conn.execute(sql, {"limit": limit}).all()
+        rows = conn.execute(sql, params).all()
     return [AgentRun(**dict(r._mapping)) for r in rows]
 
 

@@ -81,20 +81,24 @@ export default function KpiDetail() {
       ];
     }
 
-    const buckets = new Map<
-      string,
-      { x: string[]; y: (number | null)[] }
-    >();
+    const scale = meta.valueScale ?? 1;
+    const buckets = new Map<string, { x: string[]; y: (number | null)[] }>();
     for (const r of data.rows as Record<string, unknown>[]) {
       const d = r[dateField];
-      const v = r[valueField];
+      const raw = r[valueField];
       const k = r[dim];
       if (typeof d !== "string") continue;
       const seriesName = String(k ?? "unknown");
       if (!buckets.has(seriesName)) buckets.set(seriesName, { x: [], y: [] });
       const b = buckets.get(seriesName)!;
+      const num =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string"
+            ? Number(raw)
+            : Number.NaN;
       b.x.push(d);
-      b.y.push(typeof v === "number" ? v : null);
+      b.y.push(Number.isFinite(num) ? num * scale : null);
     }
     return [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -301,15 +305,22 @@ function aggregateToDaily(
   if (rows.length === 0) return [];
   const dateField = meta.dateField;
   const valueField = meta.valueField;
+  const scale = meta.valueScale ?? 1;
   const sumOrMean = meta.unit === "currency_chf" || meta.unit === "count";
   const buckets = new Map<string, number[]>();
   for (const r of rows) {
     const d = r[dateField];
-    const v = r[valueField];
+    const raw = r[valueField];
     if (typeof d !== "string") continue;
-    if (typeof v !== "number" || Number.isNaN(v)) continue;
+    const num =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number(raw)
+          : Number.NaN;
+    if (!Number.isFinite(num)) continue;
     if (!buckets.has(d)) buckets.set(d, []);
-    buckets.get(d)!.push(v);
+    buckets.get(d)!.push(num * scale);
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))

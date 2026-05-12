@@ -85,10 +85,12 @@ export const api = {
   listRecommendations: (
     status: "pending" | "approved" | "rejected" | "all" = "pending",
     limit = 50,
-  ) =>
-    request<Recommendation[]>(
-      `/api/recommendations?status=${status}&limit=${limit}`,
-    ),
+    excludeTriggers: string[] = [],
+  ) => {
+    const qs = new URLSearchParams({ status, limit: String(limit) });
+    for (const t of excludeTriggers) qs.append("exclude_triggers", t);
+    return request<Recommendation[]>(`/api/recommendations?${qs}`);
+  },
   getRecommendation: (rec_id: string) =>
     request<Recommendation>(`/api/recommendations/${rec_id}`),
   decideRecommendation: (
@@ -105,7 +107,11 @@ export const api = {
     }),
 
   // runs
-  listRuns: (limit = 50) => request<AgentRun[]>(`/api/runs?limit=${limit}`),
+  listRuns: (limit = 50, excludeTriggers: string[] = []) => {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    for (const t of excludeTriggers) qs.append("exclude_triggers", t);
+    return request<AgentRun[]>(`/api/runs?${qs}`);
+  },
   getRun: (run_id: string) => request<RunDetail>(`/api/runs/${run_id}`),
 
   // admin (Anthropic Admin API, gated server-side on ANTHROPIC_ADMIN_API_KEY)

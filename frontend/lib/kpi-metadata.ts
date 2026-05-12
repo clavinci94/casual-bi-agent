@@ -28,6 +28,17 @@ export type KpiMeta = {
   /** primary numeric column used for the headline + chart */
   valueField: string;
   unit: KpiUnit;
+  /**
+   * Multiplier applied to the raw column before formatting.
+   * - Columns ending in `_pct` (DB convention) are already in percent
+   *   (e.g. 40.34 means 40.34 %). With unit=percent + scale=0.01 the
+   *   formatter sees a 0..1 fraction and shows "40.3 %".
+   * - Currency views still expose BRL — set scale to the BRL→CHF rate
+   *   (0.16 per the project ADR) and unit to currency_chf.
+   * - For columns already in the target unit (e.g. gross_margin is a
+   *   0..1 fraction, p95_days is days), leave scale at 1.
+   */
+  valueScale: number;
   /** plain-language title shown in cards + headlines */
   title: string;
   /** one-sentence plain-language description */
@@ -46,9 +57,13 @@ export type KpiMeta = {
   groupOptions: GroupOption[];
 };
 
+// BRL → CHF, documented in the project ADR. Mirror of biq.config.settings.brl_to_chf.
+const BRL_TO_CHF = 0.16;
+
 export const KPI_META: Record<string, KpiMeta> = {
   conversion_rate_daily: {
-    valueField: "conversion_rate",
+    valueField: "conversion_rate_pct",
+    valueScale: 0.01, // column is 0..100 → divide so formatter sees a fraction
     unit: "percent",
     title: "Conversion rate",
     description:
@@ -64,26 +79,32 @@ export const KPI_META: Record<string, KpiMeta> = {
     ],
   },
   aov_daily: {
-    valueField: "aov",
+    valueField: "aov_brl",
+    valueScale: BRL_TO_CHF, // source is BRL; convert at display time
     unit: "currency_chf",
     title: "Average order value",
     description:
-      "Mean revenue per order, before refunds. Tracks how much customers spend per checkout.",
-    caveat: "Does not net out freight — use Gross margin for that.",
+      "Mean revenue per order in CHF (converted from BRL at the documented fixed rate). Tracks how much customers spend per checkout.",
+    caveat:
+      "Does not net out freight — use Gross margin for that. CHF figure uses a fixed BRL rate; refresh the ADR when the rate moves materially.",
     owner: "Revenue",
     dateField: "day",
     higherIsBetter: true,
     defaultRangeDays: 30,
-    groupOptions: [{ field: "category", label: "By product category" }],
+    groupOptions: [
+      { field: "category", label: "By product category" },
+      { field: "region", label: "By region" },
+    ],
   },
   gross_margin_weekly: {
     valueField: "gross_margin",
+    valueScale: 1, // column is already a 0..1 fraction
     unit: "percent",
     title: "Gross margin",
     description:
       "Revenue minus cost of goods sold and freight, as a percentage of revenue. The bottom-line health check.",
     caveat:
-      "COGS is estimated from product weight × a fixed constant — directional, not exact.",
+      "COGS is estimated from product weight times a fixed constant — directional, not exact.",
     owner: "Finance",
     dateField: "week",
     higherIsBetter: true,
@@ -94,7 +115,8 @@ export const KPI_META: Record<string, KpiMeta> = {
     ],
   },
   delivery_time_p95: {
-    valueField: "delivery_time_p95_days",
+    valueField: "p95_days",
+    valueScale: 1,
     unit: "days",
     title: "Delivery time (95th percentile)",
     description:
@@ -103,10 +125,14 @@ export const KPI_META: Record<string, KpiMeta> = {
     dateField: "day",
     higherIsBetter: false,
     defaultRangeDays: 30,
-    groupOptions: [{ field: "region", label: "By region" }],
+    groupOptions: [
+      { field: "region", label: "By region" },
+      { field: "category", label: "By product category" },
+    ],
   },
   review_score_avg: {
-    valueField: "review_score_avg",
+    valueField: "avg_score",
+    valueScale: 1,
     unit: "score",
     title: "Average review score",
     description:
@@ -118,7 +144,8 @@ export const KPI_META: Record<string, KpiMeta> = {
     groupOptions: [{ field: "category", label: "By product category" }],
   },
   refund_rate: {
-    valueField: "refund_rate",
+    valueField: "refund_rate_pct",
+    valueScale: 0.01,
     unit: "percent",
     title: "Refund rate",
     description:
@@ -130,10 +157,12 @@ export const KPI_META: Record<string, KpiMeta> = {
     groupOptions: [
       { field: "category", label: "By product category" },
       { field: "region", label: "By region" },
+      { field: "payment_type", label: "By payment type" },
     ],
   },
   repeat_purchase_rate: {
-    valueField: "repeat_rate",
+    valueField: "repeat_rate_pct",
+    valueScale: 0.01,
     unit: "percent",
     title: "Repeat purchase rate",
     description:
@@ -142,10 +171,14 @@ export const KPI_META: Record<string, KpiMeta> = {
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
-    groupOptions: [{ field: "segment", label: "By customer segment" }],
+    groupOptions: [
+      { field: "segment", label: "By customer segment" },
+      { field: "region", label: "By region" },
+    ],
   },
   churn_30d: {
-    valueField: "churn_rate",
+    valueField: "churn_rate_pct",
+    valueScale: 0.01,
     unit: "percent",
     title: "30-day churn rate",
     description:
@@ -156,7 +189,10 @@ export const KPI_META: Record<string, KpiMeta> = {
     dateField: "week",
     higherIsBetter: false,
     defaultRangeDays: 90,
-    groupOptions: [{ field: "segment", label: "By customer segment" }],
+    groupOptions: [
+      { field: "segment", label: "By customer segment" },
+      { field: "region", label: "By region" },
+    ],
   },
 };
 

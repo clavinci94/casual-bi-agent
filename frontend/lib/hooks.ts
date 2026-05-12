@@ -11,16 +11,21 @@ function makeHook<T>(key: string, fetcher: Fn<T>, opts?: SWRConfiguration<T>) {
 
 export const useRecommendations = (
   status: "pending" | "approved" | "rejected" | "all" = "pending",
+  excludeTriggers: string[] = [],
 ) =>
-  makeHook(`recommendations:${status}`, () => api.listRecommendations(status));
+  makeHook(`recommendations:${status}:${excludeTriggers.join(",")}`, () =>
+    api.listRecommendations(status, 50, excludeTriggers),
+  );
 
 export const useRecommendation = (id: string | null) =>
   useSWR(id ? `recommendation:${id}` : null, () =>
     api.getRecommendation(id as string),
   );
 
-export const useRuns = (limit = 50) =>
-  makeHook(`runs:${limit}`, () => api.listRuns(limit));
+export const useRuns = (limit = 50, excludeTriggers: string[] = []) =>
+  makeHook(`runs:${limit}:${excludeTriggers.join(",")}`, () =>
+    api.listRuns(limit, excludeTriggers),
+  );
 
 export const useRun = (id: string | null) =>
   useSWR(id ? `run:${id}` : null, () => api.getRun(id as string));

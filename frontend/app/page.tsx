@@ -29,8 +29,10 @@ function riskTone(level: string) {
 
 export default function Dashboard() {
   const ready = useReadiness();
-  const pending = useRecommendations("pending");
-  const runs = useRuns(8);
+  // Hide pytest fixtures from the dashboard so managers only see real work.
+  // Power users can still drop the filter on /runs (which keeps everything).
+  const pending = useRecommendations("pending", ["test"]);
+  const runs = useRuns(8, ["test"]);
 
   return (
     <div className="space-y-10">

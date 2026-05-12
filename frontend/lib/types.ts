@@ -63,12 +63,26 @@ export type KpiQueryResult = {
   error?: string;
 };
 
+/**
+ * Mirrors biq.tools.kg.list_recent_insights() — kg.nodes properties are
+ * stored in a jsonb column, so `title`, `component`, `severity`, etc. live
+ * inside `properties`, not at the top level.
+ */
 export type Insight = {
-  node_id: string;
-  title: string;
-  component?: string | null;
-  created_at?: string;
-  [k: string]: unknown;
+  insight_id: string;
+  external_ref: string | null;
+  created_at: string;
+  properties: {
+    title?: string;
+    component?: string | null;
+    severity?: "low" | "medium" | "high" | null;
+    kpi?: string;
+    run_id?: string;
+    period_start?: string;
+    period_end?: string;
+    relative_change?: number;
+    [k: string]: unknown;
+  };
 };
 
 export type HealthStatus = {

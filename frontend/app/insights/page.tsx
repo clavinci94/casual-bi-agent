@@ -1,13 +1,21 @@
 "use client";
 
 import { useInsights } from "@/lib/hooks";
-import {
-  Card,
-  Empty,
-  ErrorMessage,
-  Loading,
-  Pill,
-} from "@/components/ui";
+import { Card, Empty, ErrorMessage, Loading, Pill } from "@/components/ui";
+
+function severityTone(s: string | null | undefined) {
+  if (s === "high") return "danger" as const;
+  if (s === "medium") return "warning" as const;
+  if (s === "low") return "neutral" as const;
+  return "neutral" as const;
+}
+
+function fmtPct(v: number | undefined) {
+  if (v == null || !Number.isFinite(v)) return null;
+  const pct = v * 100;
+  const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+  return `${sign}${Math.abs(pct).toFixed(1)} %`;
+}
 
 export default function InsightsPage() {
   const { data, error, isLoading } = useInsights(50);
@@ -41,25 +49,46 @@ export default function InsightsPage() {
           </Empty>
         ) : (
           <ul className="divide-y divide-[var(--color-border)]">
-            {data.map((i, idx) => (
-              <li key={i.node_id ?? idx} className="p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Pill tone="accent">Insight</Pill>
-                  {i.component ? (
-                    <Pill tone="neutral">{String(i.component)}</Pill>
-                  ) : null}
-                  {i.created_at ? (
-                    <span className="text-xs text-[var(--color-muted)]">
-                      {new Date(String(i.created_at)).toLocaleString()}
+            {data.map((i, idx) => {
+              const p = i.properties ?? {};
+              const title = p.title ?? "(untitled)";
+              const delta = fmtPct(p.relative_change as number | undefined);
+              const period =
+                p.period_start && p.period_end
+                  ? `${p.period_start} → ${p.period_end}`
+                  : null;
+              return (
+                <li key={i.insight_id ?? idx} className="p-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <Pill tone="accent">Insight</Pill>
+                    {p.severity ? (
+                      <Pill tone={severityTone(p.severity)}>
+                        {p.severity}
+                      </Pill>
+                    ) : null}
+                    {p.component ? (
+                      <Pill tone="neutral">{String(p.component)}</Pill>
+                    ) : null}
+                    {p.kpi ? (
+                      <span className="text-xs text-[var(--color-muted)] mono">
+                        {String(p.kpi)}
+                      </span>
+                    ) : null}
+                    <span className="text-xs text-[var(--color-muted)] ml-auto">
+                      {new Date(i.created_at).toLocaleString()}
                     </span>
-                  ) : null}
-                </div>
-                <div className="font-medium">{i.title ?? "(untitled)"}</div>
-                <div className="text-xs text-[var(--color-muted)] mono mt-1">
-                  {i.node_id}
-                </div>
-              </li>
-            ))}
+                  </div>
+                  <div className="font-medium">{title}</div>
+                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--color-muted)]">
+                    {delta ? (
+                      <span className="mono">change: {delta}</span>
+                    ) : null}
+                    {period ? <span className="mono">{period}</span> : null}
+                    <span className="mono">{i.insight_id}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>
