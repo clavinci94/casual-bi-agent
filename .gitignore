@@ -56,6 +56,9 @@ htmlcov/
 **/Screenshot dashboard/
 *.png.local
 
+# Private Strategie-/Business-Dokumente — bewusst nicht committen
+docs/strategy/
+
 
 # Secrets
 *.pem
