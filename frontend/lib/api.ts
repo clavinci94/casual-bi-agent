@@ -137,6 +137,17 @@ export const api = {
   },
   getAnthropicKey: (id: string) =>
     request<AnthropicApiKey>(`/api/admin/anthropic-keys/${id}`),
+  updateAnthropicKey: (
+    id: string,
+    payload: {
+      name?: string;
+      status?: "active" | "inactive" | "archived";
+    },
+  ) =>
+    request<AnthropicApiKey>(`/api/admin/anthropic-keys/${id}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   // investigations
   startLlmInvestigation: (payload: {

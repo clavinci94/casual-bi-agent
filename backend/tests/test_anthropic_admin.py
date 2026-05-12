@@ -209,3 +209,99 @@ def test_route_maps_upstream_404(
     assert r.status_code == 404
     detail = r.json()["detail"]
     assert detail["upstream"] == {"error": "not_found"}
+
+
+# ---- Update / revoke ----------------------------------------------------
+
+
+def test_update_wrapper_rejects_empty_body(admin_key_set: None) -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        anthropic_admin.update_api_key("apikey_01abc")
+
+
+def test_update_wrapper_sends_body(
+    admin_key_set: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["body"] = request.read().decode()
+        return httpx.Response(
+            200,
+            json={
+                "id": "apikey_01abc",
+                "type": "api_key",
+                "name": "renamed",
+                "status": "archived",
+                "partial_key_hint": "sk-ant-...xyz",
+                "created_at": "2026-04-01T00:00:00Z",
+                "created_by": {"id": "user_1", "type": "user"},
+                "expires_at": None,
+                "workspace_id": None,
+            },
+        )
+
+    orig_client = anthropic_admin._client
+
+    def fake_client() -> httpx.Client:
+        c = orig_client()
+        c._transport = _fake_transport(handler)
+        return c
+
+    monkeypatch.setattr(anthropic_admin, "_client", fake_client)
+
+    import json as _json
+
+    out = anthropic_admin.update_api_key("apikey_01abc", name="renamed", status="archived")
+    assert out["name"] == "renamed"
+    assert out["status"] == "archived"
+    assert seen["method"] == "POST"
+    assert seen["url"].endswith("/api_keys/apikey_01abc")
+    body = _json.loads(seen["body"])
+    assert body == {"name": "renamed", "status": "archived"}
+
+
+def test_update_route_validates_empty_payload(admin_key_set: None) -> None:
+    r = client.post("/api/admin/anthropic-keys/apikey_01abc", json={})
+    assert r.status_code == 422
+
+
+def test_update_route_revokes(
+    admin_key_set: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(
+            200,
+            json={
+                "id": "apikey_01abc",
+                "type": "api_key",
+                "name": "biq-prod",
+                "status": "archived",
+                "partial_key_hint": "sk-ant-...xyz",
+                "created_at": "2026-04-01T00:00:00Z",
+                "created_by": {"id": "user_1", "type": "user"},
+                "expires_at": None,
+                "workspace_id": None,
+            },
+        )
+
+    orig_client = anthropic_admin._client
+
+    def fake_client() -> httpx.Client:
+        c = orig_client()
+        c._transport = _fake_transport(handler)
+        return c
+
+    monkeypatch.setattr(anthropic_admin, "_client", fake_client)
+
+    r = client.post(
+        "/api/admin/anthropic-keys/apikey_01abc",
+        json={"status": "archived"},
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "archived"

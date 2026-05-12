@@ -80,3 +80,37 @@ def get_api_key(api_key_id: str) -> dict[str, Any]:
         resp = client.get(f"/api_keys/{api_key_id}")
         resp.raise_for_status()
         return resp.json()
+
+
+# Status values the upstream update endpoint accepts. Note that "expired"
+# is a read-only state — you can transition to inactive/archived but not
+# back to expired.
+UpdatableStatus = Literal["active", "inactive", "archived"]
+
+
+def update_api_key(
+    api_key_id: str,
+    *,
+    name: str | None = None,
+    status: UpdatableStatus | None = None,
+) -> dict[str, Any]:
+    """POST /v1/organizations/api_keys/{api_key_id}.
+
+    Pass `name` to rename, `status` to (de)activate or archive. Setting
+    `status="archived"` is the way to revoke a leaked key — it can no
+    longer be used to call the API. At least one of name/status must be
+    given; an empty body is rejected here before the network hop.
+    """
+    if name is None and status is None:
+        raise ValueError("update_api_key requires at least one of name, status")
+
+    body: dict[str, Any] = {}
+    if name is not None:
+        body["name"] = name
+    if status is not None:
+        body["status"] = status
+
+    with _client() as client:
+        resp = client.post(f"/api_keys/{api_key_id}", json=body)
+        resp.raise_for_status()
+        return resp.json()

@@ -28,13 +28,13 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleString();
 }
 
-export default function SettingsPage() {
-  const [statusFilter, setStatusFilter] = useState<
-    AnthropicApiKey["status"] | "all"
-  >("all");
+type StatusFilter = AnthropicApiKey["status"] | "all";
 
-  const swrKey = ["anthropic-keys", statusFilter];
-  const { data, error, isLoading } = useSWR(
+export default function SettingsPage() {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const swrKey = ["anthropic-keys", statusFilter] as const;
+  const { data, error, isLoading, mutate } = useSWR(
     swrKey,
     () =>
       api.listAnthropicKeys(
@@ -43,17 +43,17 @@ export default function SettingsPage() {
     { revalidateOnFocus: false },
   );
 
-  const isDisabled =
-    error instanceof ApiError && error.status === 503;
+  const isDisabled = error instanceof ApiError && error.status === 503;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1">
           Anthropic API keys visible to this organisation. Fetched live via
-          the Admin API (<span className="mono">/v1/organizations/api_keys</span>).
-          The admin key never leaves the backend.
+          the Admin API (
+          <span className="mono">/v1/organizations/api_keys</span>). The admin
+          key never leaves the backend.
         </p>
       </div>
 
@@ -81,9 +81,7 @@ export default function SettingsPage() {
               <select
                 value={statusFilter}
                 onChange={(e) =>
-                  setStatusFilter(
-                    e.target.value as AnthropicApiKey["status"] | "all",
-                  )
+                  setStatusFilter(e.target.value as StatusFilter)
                 }
                 className="px-2 py-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm mono"
               >
@@ -117,33 +115,16 @@ export default function SettingsPage() {
                     <th className="text-left px-4 py-2">Workspace</th>
                     <th className="text-left px-4 py-2">Created</th>
                     <th className="text-left px-4 py-2">Expires</th>
+                    <th className="text-right px-4 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
                   {data.data.map((k) => (
-                    <tr key={k.id} className="hover:bg-[var(--color-bg)]">
-                      <td className="px-4 py-2 align-top">
-                        <div className="font-medium">{k.name}</div>
-                        <div className="text-xs text-[var(--color-muted)] mono">
-                          {k.id}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 align-top mono text-xs">
-                        {k.partial_key_hint}
-                      </td>
-                      <td className="px-4 py-2 align-top">
-                        <Pill tone={STATUS_TONES[k.status]}>{k.status}</Pill>
-                      </td>
-                      <td className="px-4 py-2 align-top text-xs text-[var(--color-muted)] mono">
-                        {k.workspace_id ?? "(default)"}
-                      </td>
-                      <td className="px-4 py-2 align-top text-xs text-[var(--color-muted)]">
-                        {fmtDate(k.created_at)}
-                      </td>
-                      <td className="px-4 py-2 align-top text-xs text-[var(--color-muted)]">
-                        {fmtDate(k.expires_at)}
-                      </td>
-                    </tr>
+                    <KeyRow
+                      key={k.id}
+                      apiKey={k}
+                      onChanged={() => mutate()}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -159,5 +140,169 @@ export default function SettingsPage() {
         </>
       ) : null}
     </div>
+  );
+}
+
+// --- KeyRow with inline rename + status actions -------------------------
+
+function KeyRow({
+  apiKey,
+  onChanged,
+}: {
+  apiKey: AnthropicApiKey;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(apiKey.name);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+
+  const isArchived = apiKey.status === "archived";
+  const isExpired = apiKey.status === "expired";
+  const canEdit = !isArchived && !isExpired;
+
+  async function save(payload: {
+    name?: string;
+    status?: "active" | "inactive" | "archived";
+  }) {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.updateAnthropicKey(apiKey.id, payload);
+      onChanged();
+      setEditing(false);
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke() {
+    const ok = window.confirm(
+      `Archive (revoke) "${apiKey.name}"? The key will stop working immediately. There is no un-archive — create a fresh key in the Console if you need a working one.`,
+    );
+    if (!ok) return;
+    await save({ status: "archived" });
+  }
+
+  return (
+    <tr className="hover:bg-[var(--color-bg)] align-top">
+      <td className="px-4 py-2">
+        {editing ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const trimmed = name.trim();
+              if (trimmed.length === 0 || trimmed === apiKey.name) {
+                setEditing(false);
+                setName(apiKey.name);
+                return;
+              }
+              save({ name: trimmed });
+            }}
+            className="flex items-center gap-1"
+          >
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+              className="px-2 py-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-sm w-44"
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              className="text-xs px-2 py-1 rounded-md bg-[var(--color-accent)] text-[var(--color-accent-fg)] disabled:opacity-50"
+            >
+              save
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setName(apiKey.name);
+                setErr(null);
+              }}
+              disabled={busy}
+              className="text-xs px-2 py-1 rounded-md text-[var(--color-muted)] hover:bg-[var(--color-bg)]"
+            >
+              cancel
+            </button>
+          </form>
+        ) : (
+          <>
+            <div className="font-medium">{apiKey.name}</div>
+            <div className="text-xs text-[var(--color-muted)] mono">
+              {apiKey.id}
+            </div>
+          </>
+        )}
+        {err ? (
+          <div className="mt-1">
+            <ErrorMessage error={err} />
+          </div>
+        ) : null}
+      </td>
+      <td className="px-4 py-2 mono text-xs">{apiKey.partial_key_hint}</td>
+      <td className="px-4 py-2">
+        <Pill tone={STATUS_TONES[apiKey.status]}>{apiKey.status}</Pill>
+      </td>
+      <td className="px-4 py-2 text-xs text-[var(--color-muted)] mono">
+        {apiKey.workspace_id ?? "(default)"}
+      </td>
+      <td className="px-4 py-2 text-xs text-[var(--color-muted)]">
+        {fmtDate(apiKey.created_at)}
+      </td>
+      <td className="px-4 py-2 text-xs text-[var(--color-muted)]">
+        {fmtDate(apiKey.expires_at)}
+      </td>
+      <td className="px-4 py-2 text-right">
+        {editing ? null : (
+          <div className="flex justify-end gap-1">
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                disabled={busy}
+                className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] hover:bg-[var(--color-bg)] disabled:opacity-50"
+              >
+                Rename
+              </button>
+            ) : null}
+            {apiKey.status === "active" ? (
+              <button
+                type="button"
+                onClick={() => save({ status: "inactive" })}
+                disabled={busy}
+                className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] hover:bg-[var(--color-bg)] disabled:opacity-50"
+              >
+                Deactivate
+              </button>
+            ) : null}
+            {apiKey.status === "inactive" ? (
+              <button
+                type="button"
+                onClick={() => save({ status: "active" })}
+                disabled={busy}
+                className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] hover:bg-[var(--color-bg)] disabled:opacity-50"
+              >
+                Activate
+              </button>
+            ) : null}
+            {!isArchived && !isExpired ? (
+              <button
+                type="button"
+                onClick={revoke}
+                disabled={busy}
+                className="text-xs px-2 py-1 rounded-md text-white bg-[var(--color-danger)] hover:opacity-90 disabled:opacity-50"
+              >
+                Revoke
+              </button>
+            ) : null}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
