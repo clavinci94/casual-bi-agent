@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals frontend-install frontend-dev frontend-build
 
 help:
 	@echo "Targets:"
@@ -30,6 +30,9 @@ help:
 	@echo "  lint          ruff check + mypy"
 	@echo "  test          pytest"
 	@echo "  evals         LLM-as-judge quality eval (costs ~CHF 0.05/run, needs ANTHROPIC_API_KEY)"
+	@echo "  frontend-install  npm install in frontend/"
+	@echo "  frontend-dev      Next.js dev server on http://localhost:3000 (needs api-serve running)"
+	@echo "  frontend-build    Next.js production build"
 
 db-up:
 	docker compose up -d db
@@ -116,3 +119,12 @@ test:
 evals:
 	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" \
 		uv run pytest -m eval -v -s tests/evals/
+
+frontend-install:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
