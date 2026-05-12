@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     brl_to_chf: float = 0.16
 
     anthropic_api_key: str | None = None
+    # Admin API key for /v1/organizations/* — separate from anthropic_api_key.
+    # Issued in the Claude Console (Organization Settings → Admin Keys) and
+    # has read access to org-level resources (API keys, workspaces, members).
+    anthropic_admin_api_key: str | None = None
     openai_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
 

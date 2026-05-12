@@ -77,3 +77,23 @@ export type HealthStatus = {
   r_service?: string;
   version?: string;
 };
+
+// Mirrors the response of /v1/organizations/api_keys on Anthropic's Admin API.
+export type AnthropicApiKey = {
+  id: string;
+  type: "api_key";
+  name: string;
+  status: "active" | "inactive" | "archived" | "expired";
+  partial_key_hint: string;
+  created_at: string;
+  expires_at: string | null;
+  workspace_id: string | null;
+  created_by: { id: string; type: string };
+};
+
+export type AnthropicApiKeyList = {
+  data: AnthropicApiKey[];
+  first_id: string | null;
+  last_id: string | null;
+  has_more: boolean;
+};

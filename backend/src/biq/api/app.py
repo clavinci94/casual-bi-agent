@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from biq import __version__
-from biq.api import health, investigations, kg, kpi, recommendations, runs
+from biq.api import admin, health, investigations, kg, kpi, recommendations, runs
 from biq.api.auth import require_api_key
 from biq.api.middleware import RequestIDMiddleware
 from biq.api.rate_limit import limiter
@@ -66,6 +66,7 @@ app.include_router(runs.router, prefix="/api", dependencies=_protected)
 app.include_router(kpi.router, prefix="/api", dependencies=_protected)
 app.include_router(investigations.router, prefix="/api", dependencies=_protected)
 app.include_router(kg.router, prefix="/api", dependencies=_protected)
+app.include_router(admin.router, prefix="/api", dependencies=_protected)
 
 
 @app.get("/", include_in_schema=False)

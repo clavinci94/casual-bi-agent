@@ -9,6 +9,7 @@ const ITEMS = [
   { href: "/runs", label: "Investigations" },
   { href: "/kpis", label: "KPIs" },
   { href: "/insights", label: "Knowledge graph" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Nav() {

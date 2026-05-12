@@ -8,6 +8,8 @@
 
 import type {
   AgentRun,
+  AnthropicApiKey,
+  AnthropicApiKeyList,
   DecisionResponse,
   HealthStatus,
   Insight,
@@ -117,6 +119,24 @@ export const api = {
   // runs
   listRuns: (limit = 50) => request<AgentRun[]>(`/api/runs?limit=${limit}`),
   getRun: (run_id: string) => request<RunDetail>(`/api/runs/${run_id}`),
+
+  // admin (Anthropic Admin API, gated server-side on ANTHROPIC_ADMIN_API_KEY)
+  listAnthropicKeys: (
+    params: {
+      status?: "active" | "inactive" | "archived" | "expired";
+      limit?: number;
+      after_id?: string;
+    } = {},
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.after_id) qs.set("after_id", params.after_id);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<AnthropicApiKeyList>(`/api/admin/anthropic-keys${suffix}`);
+  },
+  getAnthropicKey: (id: string) =>
+    request<AnthropicApiKey>(`/api/admin/anthropic-keys/${id}`),
 
   // investigations
   startLlmInvestigation: (payload: {
