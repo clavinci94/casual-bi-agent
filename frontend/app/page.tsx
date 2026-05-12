@@ -34,21 +34,67 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <section className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Causal BI overview
+      {/* Enterprise hero — what the platform does + business value. */}
+      <section className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] via-[var(--color-surface)] to-[color-mix(in_oklch,var(--color-accent)_8%,var(--color-surface))] p-8 sm:p-10">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-accent)] font-semibold">
+            <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
+            Agentic Business Intelligence
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mt-3 leading-tight">
+            Vom <span className="text-[var(--color-muted)]">Was</span> zum{" "}
+            <span className="text-[var(--color-accent)]">Warum</span> —
+            in unter einer Minute.
           </h1>
-          <p className="text-sm text-[var(--color-muted)] mt-1">
-            Pending decisions, recent investigations, and system health.
+
+          <p className="mt-4 text-base sm:text-lg text-[var(--color-fg)] leading-relaxed">
+            Causal BI überwacht Ihre Geschäftskennzahlen autonom, erkennt
+            Anomalien proaktiv und beweist mit statistischer Kausalanalyse,{" "}
+            <em>warum</em> sie auftreten. Jede Empfehlung wird mit Effektgrösse,
+            Konfidenzintervall und Sensitivitätsanalyse vorgelegt — und
+            durchläuft Ihre Freigabe, bevor sie wirksam wird.
           </p>
+
+          <p className="mt-3 text-sm text-[var(--color-muted)] leading-relaxed">
+            Klassische BI-Tools zeigen Zahlen. Generative-AI-Tools formulieren
+            Vermutungen. Diese Plattform liefert nachvollziehbare,
+            revisionssichere Entscheidungsgrundlagen — und lernt aus jeder
+            getroffenen Entscheidung weiter.
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <a
+              href="/investigate"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90 shadow-sm"
+            >
+              Untersuchung starten
+              <span aria-hidden="true">→</span>
+            </a>
+            <a
+              href="/kpis"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[var(--color-border)] text-[var(--color-fg)] hover:bg-[var(--color-bg)]"
+            >
+              KPIs ansehen
+            </a>
+          </div>
         </div>
-        <a
-          href="/investigate"
-          className="shrink-0 px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90"
-        >
-          + New investigation
-        </a>
+      </section>
+
+      {/* Value pillars — three short cards making the proposition concrete. */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <ValuePillar
+          title="Proaktive Anomalie-Erkennung"
+          body="Das System scannt Ihre KPIs kontinuierlich und flaggt statistisch signifikante Abweichungen — ohne dass jemand nachfragen muss."
+        />
+        <ValuePillar
+          title="Kausalanalyse statt Korrelation"
+          body="Bayesian Structural Time Series und Sensitivitätstests trennen echte Wirkungsbeziehungen von Zufallseffekten. Sie sehen die Effektgrösse mit 95 %-Konfidenzintervall und p-Wert."
+        />
+        <ValuePillar
+          title="Human-in-the-Loop"
+          body="Keine Massnahme wird ohne Ihre Freigabe wirksam. Jede Empfehlung trägt die vollständige Beweiskette mit — revisionssicher dokumentiert."
+        />
       </section>
 
       {/* Health row */}
@@ -181,6 +227,17 @@ export default function Dashboard() {
         </Card>
       </section>
     </div>
+  );
+}
+
+function ValuePillar({ title, body }: { title: string; body: string }) {
+  return (
+    <Card className="p-5">
+      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 text-sm text-[var(--color-muted)] leading-relaxed">
+        {body}
+      </p>
+    </Card>
   );
 }
 

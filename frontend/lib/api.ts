@@ -1,9 +1,14 @@
 /**
  * Thin client for the FastAPI backend.
  *
- * Reads the API base URL from NEXT_PUBLIC_API_URL (defaults to 127.0.0.1:8000)
- * and the API key from localStorage (set by the auth gate). Every /api/*
- * route is gated server-side when BIQ_API_KEY is configured.
+ * Reads the API base URL from NEXT_PUBLIC_API_URL (defaults to 127.0.0.1:8000).
+ *
+ * Auth: the dashboard is intended to be deployed behind a reverse proxy /
+ * SSO that handles user authentication. The FastAPI backend's X-API-Key
+ * (BIQ_API_KEY) protects machine-to-machine integrations (n8n, scripts);
+ * it is intentionally NOT shipped to the browser. For development the
+ * backend runs open (BIQ_API_KEY unset) so the dashboard reaches it
+ * without credentials.
  */
 
 import type {
@@ -21,21 +26,6 @@ import type {
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
-
-const API_KEY_STORAGE = "biq.api_key";
-
-export function getApiKey(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(API_KEY_STORAGE);
-}
-
-export function setApiKey(key: string): void {
-  window.localStorage.setItem(API_KEY_STORAGE, key);
-}
-
-export function clearApiKey(): void {
-  window.localStorage.removeItem(API_KEY_STORAGE);
-}
 
 export class ApiError extends Error {
   status: number;
@@ -55,8 +45,6 @@ async function request<T>(
   if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
-  const key = getApiKey();
-  if (key) headers.set("X-API-Key", key);
 
   const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
   const res = await fetch(url, { ...init, headers, cache: "no-store" });
