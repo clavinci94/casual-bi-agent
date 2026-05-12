@@ -21,13 +21,13 @@ import {
   summarise,
   trendTone,
 } from "@/lib/kpi-format";
-import { metaFor, type GroupOption } from "@/lib/kpi-metadata";
+import { metaFor, OWNER_LABELS, type GroupOption } from "@/lib/kpi-metadata";
 
 const PRESETS: { label: string; days: number }[] = [
-  { label: "Last 7 days", days: 7 },
-  { label: "Last 30 days", days: 30 },
-  { label: "Last 90 days", days: 90 },
-  { label: "Last 6 months", days: 180 },
+  { label: "Letzte 7 Tage", days: 7 },
+  { label: "Letzte 30 Tage", days: 30 },
+  { label: "Letzte 90 Tage", days: 90 },
+  { label: "Letzte 6 Monate", days: 180 },
 ];
 
 export default function KpiDetail() {
@@ -110,15 +110,16 @@ export default function KpiDetail() {
       <div className="space-y-4 max-w-2xl">
         <h1 className="text-2xl font-semibold tracking-tight mono">{view}</h1>
         <p className="text-sm text-[var(--color-muted)]">
-          No UX metadata for this view yet. Add it to{" "}
-          <span className="mono">lib/kpi-metadata.ts</span> to render it
-          here, or use the API directly:
+          Für diese Kennzahl ist noch keine Klartext-Beschreibung
+          hinterlegt. Eintrag in{" "}
+          <span className="mono">lib/kpi-metadata.ts</span> hinzufügen,
+          oder die Daten direkt per API abfragen:
         </p>
         <code className="block bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md p-3 text-xs mono">
           GET /api/kpis/{view}?start=…&end=…
         </code>
         <Link href="/kpis" className="text-sm text-[var(--color-accent)]">
-          ← Back to KPIs
+          ← Zurück zur Übersicht
         </Link>
       </div>
     );
@@ -131,13 +132,13 @@ export default function KpiDetail() {
         href="/kpis"
         className="text-sm text-[var(--color-muted)] hover:text-[var(--color-fg)] inline-flex items-center gap-1"
       >
-        ← All KPIs
+        ← Alle Kennzahlen
       </Link>
 
       {/* Headline */}
       <header>
         <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-          {meta.owner}
+          {OWNER_LABELS[meta.owner]}
         </div>
         <h1 className="text-3xl font-semibold tracking-tight mt-0.5">
           {meta.title}
@@ -150,18 +151,18 @@ export default function KpiDetail() {
       {/* Headline value tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <HeadlineTile
-          label="Current"
+          label="Aktuell"
           value={formatKpi(summary.current, meta.unit)}
           loading={isLoading}
         />
         <HeadlineTile
-          label="Prior period"
+          label="Vorperiode"
           value={formatKpi(summary.previous, meta.unit)}
           loading={isLoading}
           muted
         />
         <HeadlineTile
-          label="Change"
+          label="Veränderung"
           value={formatDelta(summary.delta)}
           tone={tone}
           loading={isLoading}
@@ -191,7 +192,7 @@ export default function KpiDetail() {
           {meta.groupOptions.length > 0 ? (
             <div className="flex items-center gap-1">
               <span className="text-xs text-[var(--color-muted)] mr-1">
-                Compare:
+                Aufschlüsseln:
               </span>
               <button
                 type="button"
@@ -202,7 +203,7 @@ export default function KpiDetail() {
                     : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
                 }`}
               >
-                Overall
+                Gesamt
               </button>
               {meta.groupOptions.map((g) => (
                 <button
@@ -226,7 +227,11 @@ export default function KpiDetail() {
       {/* Chart */}
       <Card className="p-4 min-h-[400px]">
         <SectionTitle
-          title={compareBy ? `Trend · ${compareBy.label.toLowerCase()}` : "Trend"}
+          title={
+            compareBy
+              ? `Verlauf · ${compareBy.label.toLowerCase()}`
+              : "Verlauf"
+          }
           hint={`${start} → ${end}`}
         />
         {error ? (
@@ -235,7 +240,8 @@ export default function KpiDetail() {
           <Loading />
         ) : !data?.rows?.length ? (
           <Empty>
-            {data?.note ?? "No data in this window. Try a wider range."}
+            {data?.note ??
+              "Keine Daten im gewählten Zeitraum. Bitte weiteren Zeitraum wählen."}
           </Empty>
         ) : (
           <TimeSeries
@@ -249,8 +255,10 @@ export default function KpiDetail() {
       {/* Caveat / what to watch for */}
       {meta.caveat ? (
         <Card className="p-4 border-dashed">
-          <SectionTitle title="What to keep in mind" />
-          <p className="text-sm text-[var(--color-muted)]">{meta.caveat}</p>
+          <SectionTitle title="Was zu beachten ist" />
+          <p className="text-sm text-[var(--color-muted)] leading-relaxed">
+            {meta.caveat}
+          </p>
         </Card>
       ) : null}
     </div>

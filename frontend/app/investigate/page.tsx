@@ -6,9 +6,9 @@ import { api, ApiError } from "@/lib/api";
 import { Card, ErrorMessage, SectionTitle } from "@/components/ui";
 
 const EXAMPLES = [
-  "What happened to mobile conversion rate in early May 2018?",
-  "Are there any anomalies in delivery time across regions in April 2018?",
-  "Why did the average order value drop in the second half of May 2018?",
+  "Was ist mit der Mobile Conversion Rate Anfang Mai 2018 passiert?",
+  "Gibt es Auffälligkeiten bei den Lieferzeiten zwischen Regionen im April 2018?",
+  "Warum ist der durchschnittliche Bestellwert in der zweiten Maihälfte 2018 gefallen?",
 ];
 
 export default function InvestigatePage() {
@@ -25,7 +25,7 @@ export default function InvestigatePage() {
     e.preventDefault();
     const trimmed = question.trim();
     if (trimmed.length < 5) {
-      setError(new Error("Question must be at least 5 characters."));
+      setError(new Error("Bitte mindestens 5 Zeichen eingeben."));
       return;
     }
     setSubmitting(true);
@@ -47,13 +47,14 @@ export default function InvestigatePage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          New investigation
+          Neue Untersuchung
         </h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          Ask the agent a business question. It plans, queries KPIs, runs
-          causal inference where appropriate, and writes a finding to the
-          audit log. You will land on the run detail page where steps stream
-          in as they happen.
+        <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
+          Stellen Sie eine geschäftliche Frage. Das System plant die
+          Untersuchung, fragt Kennzahlen ab, führt bei Bedarf
+          Kausalanalysen durch und hinterlegt das Ergebnis als
+          freigabefähige Empfehlung. Sie landen anschliessend direkt auf
+          der Detailseite, wo der Fortschritt live mitläuft.
         </p>
       </div>
 
@@ -61,7 +62,7 @@ export default function InvestigatePage() {
         <form onSubmit={submit} className="space-y-4">
           <label className="block">
             <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-              Question
+              Frage
             </span>
             <textarea
               autoFocus
@@ -69,7 +70,7 @@ export default function InvestigatePage() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               rows={4}
-              placeholder="e.g. Mobile conversion rate dropped in early May 2018 — find the cause and recommend an action."
+              placeholder="z.B. Die Mobile Conversion Rate ist Anfang Mai 2018 gefallen — Ursache finden und Massnahme vorschlagen."
               className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] resize-y"
             />
           </label>
@@ -80,14 +81,14 @@ export default function InvestigatePage() {
               onClick={() => setAdvanced((v) => !v)}
               className="text-xs text-[var(--color-muted)] hover:text-[var(--color-fg)]"
             >
-              {advanced ? "Hide" : "Show"} advanced options
+              {advanced ? "Erweiterte Optionen ausblenden" : "Erweiterte Optionen anzeigen"}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "Starting…" : "Start investigation"}
+              {submitting ? "Wird gestartet …" : "Untersuchung starten"}
             </button>
           </div>
 
@@ -95,26 +96,28 @@ export default function InvestigatePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-[var(--color-border)]">
               <label className="block">
                 <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-                  Model override
+                  Modell überschreiben
                 </span>
                 <input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="claude-sonnet-4-6 (default)"
+                  placeholder="claude-sonnet-4-6 (Standard)"
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm mono"
                 />
               </label>
               <label className="block">
                 <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-                  Max tool iterations
+                  Max. Werkzeug-Iterationen
                 </span>
                 <input
                   type="number"
                   min={1}
                   max={20}
                   value={maxIterations}
-                  onChange={(e) => setMaxIterations(parseInt(e.target.value) || 10)}
+                  onChange={(e) =>
+                    setMaxIterations(parseInt(e.target.value) || 10)
+                  }
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm mono"
                 />
               </label>
@@ -126,7 +129,7 @@ export default function InvestigatePage() {
               error={
                 error instanceof ApiError && error.status === 503
                   ? new Error(
-                      "ANTHROPIC_API_KEY is not configured on the backend. Set it and restart `make api-serve`.",
+                      "ANTHROPIC_API_KEY ist im Backend nicht gesetzt. Bitte in der .env hinterlegen und `make api-serve` neu starten.",
                     )
                   : error
               }
@@ -136,7 +139,7 @@ export default function InvestigatePage() {
       </Card>
 
       <section>
-        <SectionTitle title="Examples" />
+        <SectionTitle title="Beispiel-Fragen" />
         <div className="grid gap-2">
           {EXAMPLES.map((q) => (
             <button

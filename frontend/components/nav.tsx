@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/investigate", label: "New investigation" },
-  { href: "/runs", label: "Investigations" },
-  { href: "/kpis", label: "KPIs" },
-  { href: "/insights", label: "Knowledge graph" },
-  { href: "/settings", label: "Settings" },
+  { href: "/", label: "Übersicht" },
+  { href: "/investigate", label: "Neue Untersuchung" },
+  { href: "/runs", label: "Analysen" },
+  { href: "/kpis", label: "Kennzahlen" },
+  { href: "/insights", label: "Lernerfahrungen" },
+  { href: "/settings", label: "Einstellungen" },
 ];
 
 export function Nav() {

@@ -12,7 +12,7 @@ import {
   summarise,
   trendTone,
 } from "@/lib/kpi-format";
-import { type KpiMeta } from "@/lib/kpi-metadata";
+import { OWNER_LABELS, type KpiMeta } from "@/lib/kpi-metadata";
 
 /**
  * A single KPI card. Fetches its own data so the index page can render
@@ -42,7 +42,7 @@ export function KpiTile({ view, meta }: { view: string; meta: KpiMeta }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider text-[var(--color-muted)] font-medium">
-              {meta.owner}
+              {OWNER_LABELS[meta.owner]}
             </div>
             <h3 className="text-base font-semibold mt-0.5 leading-tight">
               {meta.title}
@@ -117,7 +117,7 @@ function DeltaText({
         : "text-[var(--color-muted)]";
   return (
     <div className={`text-xs mt-1 ${color} tabular-nums`}>
-      {formatDelta(delta)} vs prior period
+      {formatDelta(delta)} ggü. Vorperiode
     </div>
   );
 }

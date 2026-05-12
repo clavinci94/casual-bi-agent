@@ -15,6 +15,16 @@ export type KpiOwner =
   | "Quality"
   | "Retention";
 
+/** Display label for an owner team in the UI. */
+export const OWNER_LABELS: Record<KpiOwner, string> = {
+  Marketing: "Marketing",
+  Revenue: "Umsatz",
+  Finance: "Finanzen",
+  Logistics: "Logistik",
+  Quality: "Qualität",
+  Retention: "Kundenbindung",
+};
+
 export type KpiUnit = "percent" | "currency_chf" | "days" | "score" | "count";
 
 export type GroupOption = {
@@ -63,135 +73,136 @@ const BRL_TO_CHF = 0.16;
 export const KPI_META: Record<string, KpiMeta> = {
   conversion_rate_daily: {
     valueField: "conversion_rate_pct",
-    valueScale: 0.01, // column is 0..100 → divide so formatter sees a fraction
+    valueScale: 0.01,
     unit: "percent",
-    title: "Conversion rate",
+    title: "Conversion Rate",
     description:
-      "Share of visitor sessions that end in at least one order. The headline funnel metric for the online shop.",
-    caveat: "Includes bot traffic unless explicitly filtered.",
+      "Anteil der Besucher-Sitzungen, die mindestens eine Bestellung auslösen. Die zentrale Funnel-Kennzahl des Online-Shops.",
+    caveat:
+      "Bot-Traffic ist enthalten, solange er nicht ausdrücklich gefiltert wird.",
     owner: "Marketing",
     dateField: "day",
     higherIsBetter: true,
     defaultRangeDays: 30,
     groupOptions: [
-      { field: "device", label: "By device" },
-      { field: "channel", label: "By acquisition channel" },
+      { field: "device", label: "Nach Endgerät" },
+      { field: "channel", label: "Nach Akquisitions-Kanal" },
     ],
   },
   aov_daily: {
     valueField: "aov_brl",
-    valueScale: BRL_TO_CHF, // source is BRL; convert at display time
+    valueScale: BRL_TO_CHF,
     unit: "currency_chf",
-    title: "Average order value",
+    title: "Durchschnittlicher Bestellwert",
     description:
-      "Mean revenue per order in CHF (converted from BRL at the documented fixed rate). Tracks how much customers spend per checkout.",
+      "Mittlerer Umsatz pro Bestellung in CHF (umgerechnet aus BRL zum dokumentierten Festkurs). Zeigt, wie viel Kunden pro Checkout ausgeben.",
     caveat:
-      "Does not net out freight — use Gross margin for that. CHF figure uses a fixed BRL rate; refresh the ADR when the rate moves materially.",
+      "Frachtkosten sind nicht abgezogen — dafür die Bruttomarge betrachten. Der CHF-Wert basiert auf einem festen BRL-Kurs; ADR aktualisieren, wenn sich der Kurs spürbar bewegt.",
     owner: "Revenue",
     dateField: "day",
     higherIsBetter: true,
     defaultRangeDays: 30,
     groupOptions: [
-      { field: "category", label: "By product category" },
-      { field: "region", label: "By region" },
+      { field: "category", label: "Nach Produktkategorie" },
+      { field: "region", label: "Nach Region" },
     ],
   },
   gross_margin_weekly: {
     valueField: "gross_margin",
-    valueScale: 1, // column is already a 0..1 fraction
+    valueScale: 1,
     unit: "percent",
-    title: "Gross margin",
+    title: "Bruttomarge",
     description:
-      "Revenue minus cost of goods sold and freight, as a percentage of revenue. The bottom-line health check.",
+      "Umsatz minus Wareneinstandskosten und Fracht, als Anteil am Umsatz. Der Gesundheits-Check für die Profitabilität.",
     caveat:
-      "COGS is estimated from product weight times a fixed constant — directional, not exact.",
+      "Die Wareneinstandskosten werden aus Produktgewicht × Festwert geschätzt — als Richtgrösse zu verstehen, nicht als exakter Wert.",
     owner: "Finance",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
     groupOptions: [
-      { field: "category", label: "By product category" },
-      { field: "region", label: "By region" },
+      { field: "category", label: "Nach Produktkategorie" },
+      { field: "region", label: "Nach Region" },
     ],
   },
   delivery_time_p95: {
     valueField: "p95_days",
     valueScale: 1,
     unit: "days",
-    title: "Delivery time (95th percentile)",
+    title: "Lieferzeit (95 %-Perzentil)",
     description:
-      "How long the slowest 5 % of deliveries take, in business days. A customer-experience guardrail — when this rises, customers complain.",
+      "Wie lange die langsamsten 5 % der Lieferungen dauern, in Arbeitstagen. Ein Kundenerlebnis-Indikator — steigt dieser Wert, häufen sich Beschwerden.",
     owner: "Logistics",
     dateField: "day",
     higherIsBetter: false,
     defaultRangeDays: 30,
     groupOptions: [
-      { field: "region", label: "By region" },
-      { field: "category", label: "By product category" },
+      { field: "region", label: "Nach Region" },
+      { field: "category", label: "Nach Produktkategorie" },
     ],
   },
   review_score_avg: {
     valueField: "avg_score",
     valueScale: 1,
     unit: "score",
-    title: "Average review score",
+    title: "Durchschnittliche Bewertung",
     description:
-      "Mean customer review score (1 to 5), weighted toward the last 90 days. Early-warning signal for quality issues.",
+      "Mittlere Kundenbewertung (1 bis 5), gewichtet auf die letzten 90 Tage. Frühwarn-Signal für Qualitätsprobleme.",
     owner: "Quality",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
-    groupOptions: [{ field: "category", label: "By product category" }],
+    groupOptions: [{ field: "category", label: "Nach Produktkategorie" }],
   },
   refund_rate: {
     valueField: "refund_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "Refund rate",
+    title: "Rückgabequote",
     description:
-      "Share of orders that end up cancelled or unavailable. A high or rising refund rate burns margin and signals operational pain.",
+      "Anteil der Bestellungen, die storniert oder nicht verfügbar sind. Eine hohe oder steigende Quote belastet die Marge und deutet auf operative Probleme hin.",
     owner: "Finance",
     dateField: "week",
     higherIsBetter: false,
     defaultRangeDays: 90,
     groupOptions: [
-      { field: "category", label: "By product category" },
-      { field: "region", label: "By region" },
-      { field: "payment_type", label: "By payment type" },
+      { field: "category", label: "Nach Produktkategorie" },
+      { field: "region", label: "Nach Region" },
+      { field: "payment_type", label: "Nach Zahlungsart" },
     ],
   },
   repeat_purchase_rate: {
     valueField: "repeat_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "Repeat purchase rate",
+    title: "Wiederholungskauf-Rate",
     description:
-      "Share of customers who order a second time within 90 days. The single best predictor of long-term revenue.",
+      "Anteil der Kunden, die innerhalb von 90 Tagen ein zweites Mal bestellen. Der beste einzelne Frühindikator für langfristigen Umsatz.",
     owner: "Retention",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
     groupOptions: [
-      { field: "segment", label: "By customer segment" },
-      { field: "region", label: "By region" },
+      { field: "segment", label: "Nach Kundensegment" },
+      { field: "region", label: "Nach Region" },
     ],
   },
   churn_30d: {
     valueField: "churn_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "30-day churn rate",
+    title: "30-Tage-Abwanderung",
     description:
-      "Share of recently-active customers who stopped buying in the last 30 days. The inverse of stickiness.",
+      "Anteil der zuletzt aktiven Kunden, die in den letzten 30 Tagen aufgehört haben zu kaufen. Das Gegenteil von Kundenbindung.",
     caveat:
-      "Customers with a single one-off purchase are over-counted as churners.",
+      "Einmal-Kunden werden tendenziell als Abwanderer überbewertet.",
     owner: "Retention",
     dateField: "week",
     higherIsBetter: false,
     defaultRangeDays: 90,
     groupOptions: [
-      { field: "segment", label: "By customer segment" },
-      { field: "region", label: "By region" },
+      { field: "segment", label: "Nach Kundensegment" },
+      { field: "region", label: "Nach Region" },
     ],
   },
 };

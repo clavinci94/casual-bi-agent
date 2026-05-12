@@ -50,6 +50,9 @@ logs/
 coverage.xml
 htmlcov/
 
+# Local-only working dirs (screenshots, notes, etc.)
+.tmp-screenshots/
+
 # Secrets
 *.pem
 *.key
