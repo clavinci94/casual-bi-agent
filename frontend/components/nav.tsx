@@ -15,6 +15,7 @@ const PRIMARY = [
   { href: "/", label: "Übersicht" },
   { href: "/investigate", label: "Neue Analyse" },
   { href: "/kpis", label: "Kennzahlen" },
+  { href: "/markt-radar", label: "Markt-Radar" },
   { href: "/runs", label: "Aktivität" },
 ];
 

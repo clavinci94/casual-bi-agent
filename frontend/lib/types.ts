@@ -111,3 +111,62 @@ export type AnthropicApiKeyList = {
   last_id: string | null;
   has_more: boolean;
 };
+
+// --- External-intel responses (mirrors biq.tools.external) ---
+
+export type NewsItem = {
+  title: string | null;
+  source: string | null;
+  published_at: string | null;
+  url: string | null;
+  summary: string | null;
+};
+
+export type NewsResponse = {
+  query: string;
+  provider: "newsapi" | "rss";
+  results: NewsItem[];
+  cache?: "hit" | "miss";
+  error?: string;
+};
+
+export type WebSearchResult = {
+  title: string | null;
+  url: string | null;
+  content: string | null;
+  score: number | null;
+  published_date: string | null;
+};
+
+export type WebSearchResponse = {
+  query: string;
+  answer: string | null;
+  results: WebSearchResult[];
+  cache?: "hit" | "miss";
+  error?: string;
+};
+
+export type MarketItem = {
+  symbol: string;
+  name: string;
+  last: number;
+  change_pct: number | null;
+  history: { date: string; close: number }[];
+};
+
+export type MarketResponse = {
+  period: string;
+  items: MarketItem[];
+  cache?: "hit" | "miss";
+  error?: string;
+};
+
+export type TrendsResponse = {
+  keywords: string[];
+  geo: string;
+  timeframe: string;
+  timeline: Array<{ date: string; [k: string]: number | string }>;
+  related_topics: string[];
+  cache?: "hit" | "miss";
+  error?: string;
+};

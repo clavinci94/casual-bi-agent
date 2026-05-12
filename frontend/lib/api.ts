@@ -20,8 +20,12 @@ import type {
   Insight,
   KpiList,
   KpiQueryResult,
+  MarketResponse,
+  NewsResponse,
   Recommendation,
   RunDetail,
+  TrendsResponse,
+  WebSearchResponse,
 } from "./types";
 
 const BASE_URL =
@@ -142,6 +146,42 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // external intelligence (Markt-Radar)
+  externalNews: (params: { q?: string; max?: number; lang?: "de" | "en" } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    qs.set("max_results", String(params.max ?? 10));
+    qs.set("language", params.lang ?? "de");
+    return request<NewsResponse>(`/api/external/news?${qs}`);
+  },
+  externalSearch: (params: { q: string; max?: number; days?: number; topic?: "general" | "news" }) => {
+    const qs = new URLSearchParams({ q: params.q });
+    qs.set("max_results", String(params.max ?? 5));
+    if (params.days) qs.set("days", String(params.days));
+    if (params.topic) qs.set("topic", params.topic);
+    return request<WebSearchResponse>(`/api/external/search?${qs}`);
+  },
+  externalTrends: (params: {
+    keywords: string[];
+    geo?: string;
+    timeframe?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    params.keywords.forEach((k) => qs.append("keywords", k));
+    if (params.geo) qs.set("geo", params.geo);
+    if (params.timeframe) qs.set("timeframe", params.timeframe);
+    return request<TrendsResponse>(`/api/external/trends?${qs}`);
+  },
+  externalMarket: (params: {
+    symbols?: string[];
+    period?: "5d" | "1mo" | "3mo" | "6mo" | "1y";
+  } = {}) => {
+    const qs = new URLSearchParams();
+    (params.symbols ?? []).forEach((s) => qs.append("symbols", s));
+    if (params.period) qs.set("period", params.period);
+    return request<MarketResponse>(`/api/external/market?${qs}`);
+  },
 
   // investigations
   startLlmInvestigation: (payload: {

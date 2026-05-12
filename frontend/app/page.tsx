@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import useSWR from "swr";
 import {
   AlertTriangle,
   AlertCircle,
   Info,
   CheckCircle2,
   ArrowRight,
+  LineChart,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import { useReadiness, useRecommendations, useRuns } from "@/lib/hooks";
 import { Card, ErrorMessage, Loading, MutedLink } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/labels";
@@ -165,6 +171,9 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* Markt-Schlaglichter — quick external context */}
+      <MarketHighlights />
 
       {/* Activity strip — what the agent has been doing */}
       <section>
@@ -342,6 +351,84 @@ function RecommendationMemo({
         </div>
       </div>
     </Link>
+  );
+}
+
+function MarketHighlights() {
+  const { data, isLoading } = useSWR(
+    ["dashboard-market", "5d"],
+    () =>
+      api.externalMarket({
+        period: "5d",
+        symbols: ["^SSMI", "EURCHF=X", "USDCHF=X"],
+      }),
+    { revalidateOnFocus: false },
+  );
+
+  return (
+    <section>
+      <div className="mb-4 flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Markt-Schlaglichter
+        </h2>
+        <MutedLink href="/markt-radar">Markt-Radar öffnen →</MutedLink>
+      </div>
+      <Card className="p-5">
+        {isLoading ? (
+          <Loading label="Lade Marktdaten …" />
+        ) : data?.error ? (
+          <div className="text-sm text-[var(--color-muted)] flex items-center gap-2">
+            <LineChart className="size-4" />
+            Externe Daten gerade nicht verfügbar.
+          </div>
+        ) : !data?.items?.length ? (
+          <div className="text-sm text-[var(--color-muted)]">
+            Keine Marktdaten verfügbar.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {data.items.map((m) => {
+              const trend =
+                m.change_pct == null
+                  ? "flat"
+                  : m.change_pct > 0.1
+                    ? "up"
+                    : m.change_pct < -0.1
+                      ? "down"
+                      : "flat";
+              const color =
+                trend === "up"
+                  ? "text-[var(--color-success)]"
+                  : trend === "down"
+                    ? "text-[var(--color-danger)]"
+                    : "text-[var(--color-muted)]";
+              const Icon =
+                trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+              return (
+                <div key={m.symbol} className="flex items-center gap-3">
+                  <div className={`shrink-0 ${color}`}>
+                    <Icon className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium leading-tight">
+                      {m.name}
+                    </div>
+                    <div className={`text-xs ${color} tabular-nums`}>
+                      {m.last.toLocaleString("de-CH", {
+                        maximumFractionDigits: 4,
+                      })}
+                      {m.change_pct != null
+                        ? ` · ${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(2)} %`
+                        : ""}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </section>
   );
 }
 
