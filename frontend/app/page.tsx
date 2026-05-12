@@ -34,13 +34,21 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Causal BI overview
-        </h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          Pending decisions, recent investigations, and system health.
-        </p>
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Causal BI overview
+          </h1>
+          <p className="text-sm text-[var(--color-muted)] mt-1">
+            Pending decisions, recent investigations, and system health.
+          </p>
+        </div>
+        <a
+          href="/investigate"
+          className="shrink-0 px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90"
+        >
+          + New investigation
+        </a>
       </section>
 
       {/* Health row */}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useRun } from "@/lib/hooks";
-import type { AgentStep, ToolCall } from "@/lib/types";
+import useSWR from "swr";
+import { api } from "@/lib/api";
+import type { AgentStep, RunDetail, ToolCall } from "@/lib/types";
 import {
   Card,
   Empty,
@@ -11,6 +12,10 @@ import {
   Pill,
   SectionTitle,
 } from "@/components/ui";
+
+// Poll cadence while the run is still in flight. Stops as soon as the
+// audit row flips to ok/error (finished_at is set on the same UPDATE).
+const POLL_MS = 2000;
 
 function StepRow({ step, calls }: { step: AgentStep; calls: ToolCall[] }) {
   const isTool = step.action.startsWith("tool::");
@@ -82,13 +87,31 @@ function StepRow({ step, calls }: { step: AgentStep; calls: ToolCall[] }) {
   );
 }
 
+function statusTone(status: string) {
+  if (status === "ok") return "success" as const;
+  if (status === "error") return "danger" as const;
+  if (status === "running") return "accent" as const;
+  return "neutral" as const;
+}
+
 export default function RunDetail() {
   const params = useParams<{ id: string }>();
   const id = params.id ?? "";
-  const { data, error, isLoading } = useRun(id);
+
+  const { data, error, isLoading } = useSWR<RunDetail>(
+    id ? ["run", id] : null,
+    () => api.getRun(id),
+    {
+      // Auto-refresh while the run is still in flight; freeze once terminal.
+      refreshInterval: (latest) =>
+        latest?.run?.status === "running" ? POLL_MS : 0,
+    },
+  );
 
   if (error) return <ErrorMessage error={error} />;
   if (isLoading || !data) return <Loading />;
+
+  const isRunning = data.run.status === "running";
 
   return (
     <div className="space-y-8">
@@ -101,12 +124,18 @@ export default function RunDetail() {
         </h1>
         <div className="flex items-center gap-2 mt-2">
           <Pill tone="neutral">{data.run.trigger}</Pill>
-          <Pill tone={data.run.status === "ok" ? "success" : "neutral"}>
-            {data.run.status}
+          <Pill tone={statusTone(data.run.status)}>
+            {isRunning ? "running…" : data.run.status}
           </Pill>
           <span className="text-xs text-[var(--color-muted)]">
             started {new Date(data.run.started_at).toLocaleString()}
           </span>
+          {isRunning ? (
+            <span className="text-xs text-[var(--color-muted)] flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
+              auto-refreshing every {POLL_MS / 1000}s
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -117,7 +146,11 @@ export default function RunDetail() {
         />
         <Card>
           {data.steps.length === 0 ? (
-            <Empty>No steps recorded.</Empty>
+            <Empty>
+              {isRunning
+                ? "Waiting for the first step…"
+                : "No steps recorded."}
+            </Empty>
           ) : (
             <ul className="divide-y divide-[var(--color-border)]">
               {data.steps.map((s) => (

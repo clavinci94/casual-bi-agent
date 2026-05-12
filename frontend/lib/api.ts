@@ -118,6 +118,19 @@ export const api = {
   listRuns: (limit = 50) => request<AgentRun[]>(`/api/runs?limit=${limit}`),
   getRun: (run_id: string) => request<RunDetail>(`/api/runs/${run_id}`),
 
+  // investigations
+  startLlmInvestigation: (payload: {
+    question: string;
+    model?: string;
+    max_iterations?: number;
+    max_input_tokens?: number;
+    max_output_tokens?: number;
+  }) =>
+    request<{ run_id: string; status: string; poll_url: string }>(
+      "/api/investigations/llm",
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+
   // kg
   listInsights: (limit = 50) =>
     request<Insight[]>(`/api/kg/insights?limit=${limit}`),

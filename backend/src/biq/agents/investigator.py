@@ -332,6 +332,8 @@ def investigate(
     max_input_tokens: int = DEFAULT_MAX_INPUT_TOKENS,
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
     thinking_budget: int = DEFAULT_THINKING_BUDGET,
+    trigger: str = "cli",
+    run_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the investigator loop. Returns final answer + audit metadata.
 
@@ -339,6 +341,10 @@ def investigate(
       - max_iterations: tool-use loop budget
       - max_input_tokens: cumulative input tokens (incl. cache hits)
       - max_output_tokens: cumulative output tokens (visible + thinking)
+
+    Pass `run_id` to attach to a pre-allocated audit row (e.g. when the
+    HTTP layer wants to return the id before the loop finishes). `trigger`
+    is recorded on the run for filtering ("cli", "api", "n8n", ...).
     """
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env to run the LLM investigator.")
@@ -348,7 +354,7 @@ def investigate(
     system = _cached_system()
     lf = init_langfuse()
 
-    with run_context(trigger="cli", prompt=question) as ctx:
+    with run_context(trigger=trigger, prompt=question, run_id=run_id) as ctx:
         # Parent agent-trace in Langfuse — per-turn generation spans nest
         # under it. nullcontext() makes this a no-op when LF env vars
         # aren't set, so the wrapping costs nothing in dev/CI.

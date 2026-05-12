@@ -171,3 +171,68 @@ def test_anomaly_investigation(db_ready: bool) -> None:
     body = r.json()
     assert "insights" in body
     assert "run_id" in body
+
+
+def test_llm_investigation_validates_question() -> None:
+    r = client.post("/api/investigations/llm", json={"question": "hi"})
+    assert r.status_code == 422  # min_length=5
+
+
+def test_llm_investigation_returns_run_id(db_ready: bool, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Endpoint allocates a run row, returns 202 + run_id, and the row is queryable.
+
+    The actual LLM call is stubbed — we just want to verify the contract.
+    """
+    from biq.agents import investigator as inv
+    from biq.api import investigations as inv_api
+
+    called: dict[str, str] = {}
+
+    def fake_investigate(question, **kwargs):  # type: ignore[no-untyped-def]
+        called["question"] = question
+        called["run_id"] = kwargs.get("run_id", "")
+        return {"run_id": kwargs.get("run_id"), "final_answer": "stub"}
+
+    monkeypatch.setattr(inv, "investigate", fake_investigate)
+    monkeypatch.setattr(inv_api.llm_investigator, "investigate", fake_investigate)
+    monkeypatch.setattr(inv_api.settings, "anthropic_api_key", "test-key", raising=False)
+
+    r = client.post(
+        "/api/investigations/llm",
+        json={"question": "What happened to mobile conversion in early May 2018?"},
+    )
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["status"] == "started"
+    rid = body["run_id"]
+    assert len(rid) > 8
+    assert body["poll_url"] == f"/api/runs/{rid}"
+
+    # Wait briefly for the background thread to land and verify it ran.
+    inv_api._llm_executor.shutdown(wait=True)
+    assert called["run_id"] == rid
+
+    # Recreate the pool for any subsequent tests in this session.
+    from concurrent.futures import ThreadPoolExecutor
+
+    inv_api._llm_executor = ThreadPoolExecutor(
+        max_workers=inv_api._MAX_CONCURRENT_LLM_RUNS,
+        thread_name_prefix="biq-llm",
+    )
+
+    # The audit row should exist and be marked ok (the stub returns cleanly).
+    r2 = client.get(f"/api/runs/{rid}")
+    assert r2.status_code == 200
+    assert r2.json()["run"]["run_id"] == rid
+
+
+def test_llm_investigation_rejects_when_key_missing(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from biq.api import investigations as inv_api
+
+    monkeypatch.setattr(inv_api.settings, "anthropic_api_key", None, raising=False)
+    r = client.post(
+        "/api/investigations/llm",
+        json={"question": "Mobile conversion drop early May 2018"},
+    )
+    assert r.status_code == 503
+    assert "ANTHROPIC_API_KEY" in r.json()["detail"]

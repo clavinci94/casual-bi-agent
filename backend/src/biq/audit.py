@@ -36,16 +36,19 @@ def _json(value: Any) -> str | None:
     return json.dumps(value, default=str)
 
 
-@contextmanager
-def run_context(
+def start_run(
     trigger: str,
     prompt: str | None = None,
     user_id: str | None = None,
-) -> Iterator[RunContext]:
-    """Open an audit.agent_runs row, yield context, mark ok/error on exit."""
-    run_id = str(uuid.uuid4())
-    ctx = RunContext(run_id=run_id, trigger=trigger)
+) -> str:
+    """Insert an audit.agent_runs row in 'running' state and return its id.
 
+    Use this when you need the run_id BEFORE the work begins — typically
+    from an API handler that returns immediately and spawns the actual
+    agent loop on a background thread, so the client can poll the run.
+    Pair with `run_context(..., run_id=<that id>)` inside the worker.
+    """
+    run_id = str(uuid.uuid4())
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -54,6 +57,40 @@ def run_context(
             ),
             {"run_id": run_id, "user_id": user_id, "trigger": trigger, "prompt": prompt},
         )
+    return run_id
+
+
+@contextmanager
+def run_context(
+    trigger: str,
+    prompt: str | None = None,
+    user_id: str | None = None,
+    run_id: str | None = None,
+) -> Iterator[RunContext]:
+    """Open (or attach to) an audit.agent_runs row.
+
+    When `run_id` is None: INSERT a new row, yield context, UPDATE on exit.
+    When `run_id` is provided: the row was already inserted (e.g. via
+    `start_run` from an API handler). We do NOT re-insert; we still UPDATE
+    on exit so the lifecycle (ok / error + finished_at) is recorded.
+    """
+    if run_id is None:
+        run_id = str(uuid.uuid4())
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO audit.agent_runs (run_id, user_id, trigger, prompt, status) "
+                    "VALUES (:run_id, :user_id, :trigger, :prompt, 'running')"
+                ),
+                {
+                    "run_id": run_id,
+                    "user_id": user_id,
+                    "trigger": trigger,
+                    "prompt": prompt,
+                },
+            )
+
+    ctx = RunContext(run_id=run_id, trigger=trigger)
 
     try:
         yield ctx
