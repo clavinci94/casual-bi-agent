@@ -201,14 +201,35 @@ def lookup_past_decisions(component: str, days_back: int = 180) -> dict[str, Any
     }
 
 
-def list_recent_insights(limit: int = 50) -> list[dict[str, Any]]:
+def list_recent_insights(
+    limit: int = 50,
+    exclude_triggers: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Recent Insight nodes, optionally filtered by parent run's trigger.
+
+    Insight nodes carry `properties->>'run_id'` linking back to
+    audit.agent_runs. When `exclude_triggers` is given we LEFT JOIN and
+    drop matches — that hides pytest fixtures from the dashboard while
+    still surfacing legacy Insights without a run_id (the JOIN preserves
+    them via the IS NULL clause).
+    """
+    params: dict[str, Any] = {"limit": limit}
+    where_extra = ""
+    if exclude_triggers:
+        where_extra = "AND (ar.trigger IS NULL OR ar.trigger <> ALL(:excluded))"
+        params["excluded"] = list(exclude_triggers)
+
     sql = text(
-        "SELECT node_id, external_ref, properties, created_at "
-        "FROM kg.nodes WHERE label = 'Insight' "
-        "ORDER BY created_at DESC LIMIT :limit"
+        "SELECT n.node_id, n.external_ref, n.properties, n.created_at "
+        "FROM kg.nodes n "
+        "LEFT JOIN audit.agent_runs ar "
+        "  ON ar.run_id = (n.properties->>'run_id') "
+        "WHERE n.label = 'Insight' "
+        f"{where_extra} "
+        "ORDER BY n.created_at DESC LIMIT :limit"
     )
     with engine.connect() as conn:
-        rows = conn.execute(sql, {"limit": limit}).all()
+        rows = conn.execute(sql, params).all()
     return [
         {
             "insight_id": r[0],

@@ -157,6 +157,9 @@ export const api = {
     ),
 
   // kg
-  listInsights: (limit = 50) =>
-    request<Insight[]>(`/api/kg/insights?limit=${limit}`),
+  listInsights: (limit = 50, excludeTriggers: string[] = []) => {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    for (const t of excludeTriggers) qs.append("exclude_triggers", t);
+    return request<Insight[]>(`/api/kg/insights?${qs}`);
+  },
 };

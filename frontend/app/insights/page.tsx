@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useInsights } from "@/lib/hooks";
 import { Card, Empty, ErrorMessage, Loading, Pill } from "@/components/ui";
 
@@ -18,19 +19,34 @@ function fmtPct(v: number | undefined) {
 }
 
 export default function InsightsPage() {
-  const { data, error, isLoading } = useInsights(50);
+  const [showTests, setShowTests] = useState(false);
+  const { data, error, isLoading } = useInsights(
+    50,
+    showTests ? [] : ["test"],
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Knowledge graph
-        </h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          What the system has learned. Each recommendation becomes an{" "}
-          <span className="mono">Insight</span> node; HITL approvals create{" "}
-          <span className="mono">Decision</span> edges; outcomes close the loop.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Knowledge graph
+          </h1>
+          <p className="text-sm text-[var(--color-muted)] mt-1">
+            What the system has learned. Each recommendation becomes an{" "}
+            <span className="mono">Insight</span> node; HITL approvals create{" "}
+            <span className="mono">Decision</span> edges; outcomes close the loop.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-[var(--color-muted)] cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showTests}
+            onChange={(e) => setShowTests(e.target.checked)}
+            className="accent-[var(--color-accent)]"
+          />
+          Show test insights
+        </label>
       </div>
 
       <Card>

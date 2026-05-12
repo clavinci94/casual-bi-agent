@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRuns } from "@/lib/hooks";
 import {
   Card,
@@ -19,15 +20,32 @@ function fmtDuration(startISO: string, endISO: string | null): string {
 }
 
 export default function RunsIndex() {
-  const { data, error, isLoading } = useRuns(100);
+  const [showTests, setShowTests] = useState(false);
+  const { data, error, isLoading } = useRuns(
+    100,
+    showTests ? [] : ["test"],
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Investigations</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          Every agent run, with full audit trail.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Investigations
+          </h1>
+          <p className="text-sm text-[var(--color-muted)] mt-1">
+            Every agent run, with full audit trail.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-[var(--color-muted)] cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showTests}
+            onChange={(e) => setShowTests(e.target.checked)}
+            className="accent-[var(--color-accent)]"
+          />
+          Show test runs
+        </label>
       </div>
 
       <Card>

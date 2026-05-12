@@ -41,7 +41,9 @@ export const useKpiQuery = (
     () => api.queryKpi(view as string, params),
   );
 
-export const useInsights = (limit = 50) =>
-  makeHook(`insights:${limit}`, () => api.listInsights(limit));
+export const useInsights = (limit = 50, excludeTriggers: string[] = []) =>
+  makeHook(`insights:${limit}:${excludeTriggers.join(",")}`, () =>
+    api.listInsights(limit, excludeTriggers),
+  );
 
 export const useReadiness = () => makeHook("readyz", () => api.readiness());

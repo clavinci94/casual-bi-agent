@@ -13,9 +13,20 @@ router = APIRouter(prefix="/kg", tags=["knowledge-graph"])
 
 
 @router.get("/insights")
-def list_insights(limit: Annotated[int, Query(le=200)] = 50) -> list[dict[str, Any]]:
+def list_insights(
+    limit: Annotated[int, Query(le=200)] = 50,
+    exclude_triggers: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Drop Insights produced by runs with these triggers (e.g. 'test'). "
+                "Insights without a run_id are kept regardless."
+            ),
+        ),
+    ] = None,
+) -> list[dict[str, Any]]:
     """Recent Insight nodes — every recommendation that landed."""
-    return kg_tools.list_recent_insights(limit=limit)
+    return kg_tools.list_recent_insights(limit=limit, exclude_triggers=exclude_triggers)
 
 
 @router.get("/learnings/{component}")
