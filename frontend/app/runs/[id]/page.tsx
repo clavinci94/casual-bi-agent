@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { api } from "@/lib/api";
@@ -9,21 +10,42 @@ import {
   Empty,
   ErrorMessage,
   Loading,
+  MutedLink,
   Pill,
-  SectionTitle,
 } from "@/components/ui";
+import {
+  formatRelativeTime,
+  friendlyStatus,
+  friendlyTrigger,
+  statusTone,
+} from "@/lib/labels";
 
-// Poll cadence while the run is still in flight. Stops as soon as the
-// audit row flips to ok/error (finished_at is set on the same UPDATE).
 const POLL_MS = 2000;
 
-function StepRow({ step, calls }: { step: AgentStep; calls: ToolCall[] }) {
+// User-facing names for the tools the investigator calls. Anything not in
+// the map falls back to its raw name — mostly fine for power users.
+const TOOL_DESCRIPTIONS: Record<string, string> = {
+  kpi_query: "Kennzahlen abgefragt",
+  releases_in_window: "Release-Historie geprüft",
+  campaigns_in_window: "Marketing-Kampagnen geprüft",
+  kg_lookup_past_decisions: "Frühere Entscheidungen nachgeschlagen",
+  causal_impact_conversion: "Kausalanalyse durchgeführt",
+  evalue: "Robustheit (E-Value) bestimmt",
+  power_test: "Statistische Power geprüft",
+  record_finding: "Empfehlung festgehalten",
+};
+
+function TechnicalStepRow({
+  step,
+  calls,
+}: {
+  step: AgentStep;
+  calls: ToolCall[];
+}) {
   const isTool = step.action.startsWith("tool::");
   const isPlan = step.action === "plan";
   const tone = isTool ? "accent" : isPlan ? "warning" : "neutral";
   const callsForStep = calls.filter((c) => {
-    // tool_calls aren't directly attached to a step in the API payload,
-    // but every tool-call step has exactly one matching tool_name.
     if (!isTool) return false;
     const expected = step.action.replace("tool::", "");
     return c.tool_name === expected;
@@ -87,14 +109,7 @@ function StepRow({ step, calls }: { step: AgentStep; calls: ToolCall[] }) {
   );
 }
 
-function statusTone(status: string) {
-  if (status === "ok") return "success" as const;
-  if (status === "error") return "danger" as const;
-  if (status === "running") return "accent" as const;
-  return "neutral" as const;
-}
-
-export default function RunDetail() {
+export default function RunDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id ?? "";
 
@@ -102,11 +117,33 @@ export default function RunDetail() {
     id ? ["run", id] : null,
     () => api.getRun(id),
     {
-      // Auto-refresh while the run is still in flight; freeze once terminal.
       refreshInterval: (latest) =>
         latest?.run?.status === "running" ? POLL_MS : 0,
     },
   );
+
+  // Surface the agent's plan + any recommendations recorded during the
+  // run as the manager-readable summary. The full audit trail stays in
+  // the collapsible section below.
+  const summary = useMemo(() => {
+    if (!data) return null;
+    const planStep = data.steps.find((s) => s.action === "plan");
+    const plan =
+      planStep?.output && typeof planStep.output.plan === "string"
+        ? (planStep.output.plan as string)
+        : null;
+    const toolsUsed = Array.from(
+      new Set(
+        data.tool_calls
+          .map((c) => TOOL_DESCRIPTIONS[c.tool_name] ?? c.tool_name)
+          .filter((s) => s !== "Empfehlung festgehalten"),
+      ),
+    );
+    const findingCount = data.tool_calls.filter(
+      (c) => c.tool_name === "record_finding" && !c.error,
+    ).length;
+    return { plan, toolsUsed, findingCount };
+  }, [data]);
 
   if (error) return <ErrorMessage error={error} />;
   if (isLoading || !data) return <Loading />;
@@ -114,52 +151,117 @@ export default function RunDetail() {
   const isRunning = data.run.status === "running";
 
   return (
-    <div className="space-y-8">
-      <div>
-        <div className="flex items-center gap-2 text-xs text-[var(--color-muted)] mono">
-          <span>{id}</span>
+    <div className="space-y-6 max-w-4xl">
+      <MutedLink href="/runs">← Zurück zur Übersicht</MutedLink>
+
+      {/* Header */}
+      <header>
+        <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
+          Analyse
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1">
-          {data.run.prompt ?? "(no prompt)"}
+        <h1 className="text-2xl font-semibold tracking-tight mt-1 leading-tight">
+          {data.run.prompt ?? "(ohne Titel)"}
         </h1>
-        <div className="flex items-center gap-2 mt-2">
-          <Pill tone="neutral">{data.run.trigger}</Pill>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <Pill tone={statusTone(data.run.status)}>
-            {isRunning ? "running…" : data.run.status}
+            {friendlyStatus(data.run.status)}
           </Pill>
           <span className="text-xs text-[var(--color-muted)]">
-            started {new Date(data.run.started_at).toLocaleString()}
+            {friendlyTrigger(data.run.trigger)} ·{" "}
+            {formatRelativeTime(data.run.started_at)}
           </span>
           {isRunning ? (
-            <span className="text-xs text-[var(--color-muted)] flex items-center gap-1">
+            <span className="text-xs text-[var(--color-muted)] flex items-center gap-1 ml-2">
               <span className="size-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
-              auto-refreshing every {POLL_MS / 1000}s
+              aktualisiert alle {POLL_MS / 1000} s
             </span>
           ) : null}
         </div>
-      </div>
+      </header>
 
-      <section>
-        <SectionTitle
-          title="Audit trail"
-          hint={`${data.steps.length} steps · ${data.tool_calls.length} tool calls`}
-        />
-        <Card>
+      {/* Manager-readable summary */}
+      <Card className="p-6">
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium mb-3">
+          Was das System gemacht hat
+        </h2>
+
+        {summary?.toolsUsed.length ? (
+          <div className="mb-4">
+            <div className="text-xs text-[var(--color-muted)] mb-2">
+              Durchgeführte Schritte
+            </div>
+            <ul className="space-y-1.5">
+              {summary.toolsUsed.map((t, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-[var(--color-success)] mt-0.5">✓</span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : isRunning ? (
+          <p className="text-sm text-[var(--color-muted)]">
+            Der Agent erstellt gerade den Untersuchungsplan…
+          </p>
+        ) : (
+          <p className="text-sm text-[var(--color-muted)]">
+            Keine Schritte ausgeführt.
+          </p>
+        )}
+
+        {summary?.findingCount ? (
+          <div className="mt-4 pt-4 border-t border-[var(--color-border)] text-sm">
+            <strong>{summary.findingCount}</strong>{" "}
+            {summary.findingCount === 1 ? "Empfehlung" : "Empfehlungen"}{" "}
+            festgehalten — zu finden im Dashboard unter „Empfehlungen mit
+            offener Freigabe“.
+          </div>
+        ) : null}
+
+        {summary?.plan ? (
+          <details className="mt-4 pt-4 border-t border-[var(--color-border)]">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--color-muted)] hover:text-[var(--color-fg)]">
+              Untersuchungsplan anzeigen
+            </summary>
+            <pre className="mt-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md p-3 whitespace-pre-wrap">
+              {summary.plan}
+            </pre>
+          </details>
+        ) : null}
+      </Card>
+
+      {/* Full audit trail, collapsed by default */}
+      <details className="group">
+        <summary className="cursor-pointer text-sm text-[var(--color-muted)] hover:text-[var(--color-fg)] select-none">
+          <span className="font-medium">Technische Details</span> ·{" "}
+          {data.steps.length} Schritte, {data.tool_calls.length} Tool-Aufrufe
+        </summary>
+        <Card className="mt-3">
           {data.steps.length === 0 ? (
             <Empty>
               {isRunning
-                ? "Waiting for the first step…"
-                : "No steps recorded."}
+                ? "Warte auf den ersten Schritt …"
+                : "Keine Schritte protokolliert."}
             </Empty>
           ) : (
             <ul className="divide-y divide-[var(--color-border)]">
               {data.steps.map((s) => (
-                <StepRow key={s.step_id} step={s} calls={data.tool_calls} />
+                <TechnicalStepRow
+                  key={s.step_id}
+                  step={s}
+                  calls={data.tool_calls}
+                />
               ))}
             </ul>
           )}
         </Card>
-      </section>
+        <p className="mt-3 text-xs text-[var(--color-muted)]">
+          Diese Sicht ist für technische Reviews — sie zeigt jeden einzelnen
+          LLM-Call, jeden SQL-Query und jedes statistische Verfahren mit
+          den exakten Parametern.
+        </p>
+      </details>
     </div>
   );
 }
+

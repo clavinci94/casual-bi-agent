@@ -8,23 +8,25 @@ import {
   Loading,
   MutedLink,
   Pill,
-  SectionTitle,
 } from "@/components/ui";
-
-function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import {
+  fmtConfidence,
+  formatRelativeTime,
+  friendlyStatus,
+  friendlyTrigger,
+  statusTone,
+} from "@/lib/labels";
 
 function riskTone(level: string) {
   if (level === "high") return "danger" as const;
   if (level === "medium") return "warning" as const;
   return "neutral" as const;
+}
+
+function riskLabel(level: string) {
+  if (level === "high") return "Hohes Risiko";
+  if (level === "medium") return "Mittleres Risiko";
+  return "Niedriges Risiko";
 }
 
 export default function Dashboard() {
@@ -126,10 +128,22 @@ export default function Dashboard() {
 
       {/* Pending HITL queue */}
       <section>
-        <SectionTitle
-          title="Pending decisions"
-          hint={pending.data ? `${pending.data.length} open` : undefined}
-          action={<MutedLink href="/runs">View all runs →</MutedLink>}
+        <SectionHeading
+          title="Empfehlungen mit offener Freigabe"
+          lead={
+            <>
+              Massnahmenvorschläge, die das System nach einer abgeschlossenen
+              Analyse für Sie erstellt hat. <strong>Keine</strong> Empfehlung
+              wird ohne Ihre Entscheidung wirksam. Klicken Sie eine Karte an,
+              um die vollständige Beweisführung zu sehen und freizugeben oder
+              abzulehnen.
+            </>
+          }
+          hint={
+            pending.data
+              ? `${pending.data.length} offen`
+              : undefined
+          }
         />
         <Card>
           {pending.error ? (
@@ -141,24 +155,27 @@ export default function Dashboard() {
               <Loading />
             </div>
           ) : !pending.data || pending.data.length === 0 ? (
-            <Empty>No pending recommendations — the queue is clear.</Empty>
+            <Empty>
+              Aktuell keine offenen Empfehlungen. Das System meldet sich
+              automatisch, sobald es etwas Auffälliges findet.
+            </Empty>
           ) : (
             <ul className="divide-y divide-[var(--color-border)]">
               {pending.data.slice(0, 8).map((r) => (
                 <li key={r.rec_id} className="p-4 hover:bg-[var(--color-bg)]">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Pill tone={riskTone(r.risk_level)}>
-                          {r.risk_level}
+                          {riskLabel(r.risk_level)}
                         </Pill>
-                        {typeof r.confidence === "number" ? (
+                        {fmtConfidence(r.confidence) ? (
                           <Pill tone="neutral">
-                            {(r.confidence * 100).toFixed(0)}% confidence
+                            {fmtConfidence(r.confidence)}
                           </Pill>
                         ) : null}
                         <span className="text-xs text-[var(--color-muted)]">
-                          {fmtDate(r.created_at)}
+                          {formatRelativeTime(r.created_at)}
                         </span>
                       </div>
                       <MutedLink href={`/recommendations/${r.rec_id}`}>
@@ -166,7 +183,7 @@ export default function Dashboard() {
                           {r.title}
                         </span>
                       </MutedLink>
-                      <p className="text-sm text-[var(--color-muted)] mt-1 line-clamp-2">
+                      <p className="text-sm text-[var(--color-muted)] mt-1 line-clamp-2 leading-relaxed">
                         {r.body}
                       </p>
                     </div>
@@ -178,11 +195,19 @@ export default function Dashboard() {
         </Card>
       </section>
 
-      {/* Recent runs */}
+      {/* Recent investigations — what the agent has been working on. */}
       <section>
-        <SectionTitle
-          title="Recent investigations"
-          action={<MutedLink href="/runs">All runs →</MutedLink>}
+        <SectionHeading
+          title="Letzte Analysen"
+          lead={
+            <>
+              Was das System zuletzt für Sie untersucht hat — entweder auf
+              Anfrage über das Dashboard oder als geplante Routineanalyse.
+              Jeder Eintrag enthält die vollständige nachvollziehbare
+              Beweiskette.
+            </>
+          }
+          action={<MutedLink href="/runs">Alle Analysen ansehen →</MutedLink>}
         />
         <Card>
           {runs.error ? (
@@ -194,32 +219,26 @@ export default function Dashboard() {
               <Loading />
             </div>
           ) : !runs.data || runs.data.length === 0 ? (
-            <Empty>No runs yet. Trigger one with `make investigate Q=…`.</Empty>
+            <Empty>
+              Noch keine Analysen vorhanden. Starten Sie die erste über{" "}
+              <span className="font-medium">„Neue Untersuchung“</span>.
+            </Empty>
           ) : (
             <ul className="divide-y divide-[var(--color-border)]">
               {runs.data.map((r) => (
                 <li key={r.run_id} className="p-4 hover:bg-[var(--color-bg)]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Pill tone="neutral">{r.trigger}</Pill>
-                        <Pill
-                          tone={r.status === "ok" ? "success" : "neutral"}
-                        >
-                          {r.status}
-                        </Pill>
-                        <span className="text-xs text-[var(--color-muted)]">
-                          {fmtDate(r.started_at)}
-                        </span>
-                      </div>
-                      <MutedLink href={`/runs/${r.run_id}`}>
-                        <span className="font-medium text-[var(--color-fg)] hover:underline">
-                          {r.prompt ?? "(no prompt)"}
-                        </span>
-                      </MutedLink>
-                    </div>
-                    <span className="text-xs text-[var(--color-muted)] mono shrink-0">
-                      {r.run_id.slice(0, 8)}
+                  <MutedLink href={`/runs/${r.run_id}`}>
+                    <span className="font-medium text-[var(--color-fg)] hover:underline">
+                      {r.prompt ?? "(ohne Titel)"}
+                    </span>
+                  </MutedLink>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <Pill tone={statusTone(r.status)}>
+                      {friendlyStatus(r.status)}
+                    </Pill>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      {friendlyTrigger(r.trigger)} ·{" "}
+                      {formatRelativeTime(r.started_at)}
                     </span>
                   </div>
                 </li>
@@ -228,6 +247,44 @@ export default function Dashboard() {
           )}
         </Card>
       </section>
+    </div>
+  );
+}
+
+/**
+ * Section heading with a manager-readable lead paragraph beneath the
+ * title. Use this instead of <SectionTitle/> when the user needs context
+ * about what the section actually is.
+ */
+function SectionHeading({
+  title,
+  lead,
+  hint,
+  action,
+}: {
+  title: string;
+  lead?: React.ReactNode;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {title}
+          {hint ? (
+            <span className="ml-2 text-sm font-normal text-[var(--color-muted)]">
+              · {hint}
+            </span>
+          ) : null}
+        </h2>
+        {action}
+      </div>
+      {lead ? (
+        <p className="mt-1.5 text-sm text-[var(--color-muted)] max-w-3xl leading-relaxed">
+          {lead}
+        </p>
+      ) : null}
     </div>
   );
 }
