@@ -12,15 +12,16 @@ stays free + deterministic.
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from biq.agents.investigator import investigate
+from biq.config import settings
 from tests.evals.dataset import CASES
 from tests.evals.judge import load_trace, score
 
-_HAS_KEY = bool(os.environ.get("ANTHROPIC_API_KEY"))
+# Pydantic-settings already loads .env, so this respects backend/.env even
+# when pytest is invoked without an explicit ANTHROPIC_API_KEY env var.
+_HAS_KEY = bool(settings.anthropic_api_key)
 
 
 @pytest.mark.eval

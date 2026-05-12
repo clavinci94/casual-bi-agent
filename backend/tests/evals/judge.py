@@ -131,7 +131,7 @@ def load_trace(run_id: str, final_answer: str) -> Trace:
         tool_rows = conn.execute(
             text(
                 "SELECT s.action, t.tool_name, t.params, t.result_summary, "
-                "       t.rows_count, t.error "
+                "       t.rows_returned, t.error "
                 "FROM audit.agent_steps s "
                 "JOIN audit.tool_calls t ON t.step_id = s.step_id "
                 "WHERE s.run_id = :id "
@@ -172,7 +172,16 @@ def load_trace(run_id: str, final_answer: str) -> Trace:
 
 def score(trace: Trace, *, api_key: str | None = None) -> Score:
     """Send a trace to Haiku and parse the structured score."""
+    # Fall back to pydantic-loaded settings if no explicit override and no
+    # shell-level env var — same .env file the rest of the app reads.
     key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        try:
+            from biq.config import settings
+
+            key = settings.anthropic_api_key
+        except Exception:
+            key = None
     if not key:
         raise RuntimeError("ANTHROPIC_API_KEY required to run the judge.")
 
