@@ -93,10 +93,17 @@ export function ModelPicker({
                 >
                   <Icon className="size-4" />
                 </span>
-                <span className="font-semibold text-sm">{m.name}</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm leading-tight">
+                    {m.name}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-muted)] mono leading-tight mt-0.5">
+                    {m.modelLabel}
+                  </div>
+                </div>
               </div>
 
-              <p className="mt-2 text-xs text-[var(--color-muted)] leading-relaxed line-clamp-3">
+              <p className="mt-3 text-xs text-[var(--color-muted)] leading-relaxed line-clamp-3">
                 {m.blurb}
               </p>
 

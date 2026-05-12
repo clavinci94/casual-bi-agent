@@ -12,8 +12,11 @@ export type ModelTier = "haiku" | "sonnet" | "opus";
 
 export type ModelChoice = {
   tier: ModelTier;
+  /** Anthropic model identifier passed to the API. */
   id: string;
-  /** Plain-German name shown on the picker card. */
+  /** Human-readable model family + version ("Claude Sonnet 4.6"). */
+  modelLabel: string;
+  /** Plain-German positioning name shown on the picker card. */
   name: string;
   /** One-line positioning. */
   blurb: string;
@@ -27,6 +30,7 @@ export const MODELS: Record<ModelTier, ModelChoice> = {
   haiku: {
     tier: "haiku",
     id: "claude-haiku-4-5-20251001",
+    modelLabel: "Claude Haiku 4.5",
     name: "Schnell & günstig",
     blurb:
       "Für Routine-Checks und einfache Fragen, wenn es schnell gehen muss.",
@@ -36,6 +40,7 @@ export const MODELS: Record<ModelTier, ModelChoice> = {
   sonnet: {
     tier: "sonnet",
     id: "claude-sonnet-4-6",
+    modelLabel: "Claude Sonnet 4.6",
     name: "Standard",
     blurb:
       "Ausgewogene Tiefe und Kosten. Für die meisten geschäftlichen Fragen geeignet.",
@@ -45,6 +50,7 @@ export const MODELS: Record<ModelTier, ModelChoice> = {
   opus: {
     tier: "opus",
     id: "claude-opus-4-7",
+    modelLabel: "Claude Opus 4.7",
     name: "Maximale Tiefe",
     blurb:
       "Für komplexe, mehrschichtige Fälle, wo Qualität wichtiger ist als Kosten.",
