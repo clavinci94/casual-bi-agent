@@ -12,6 +12,28 @@ import { useReadiness, useRecommendations, useRuns } from "@/lib/hooks";
 import { Card, ErrorMessage, Loading, MutedLink } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/labels";
 
+/**
+ * Heuristic: prompts that look like background scans, smoke checks, or
+ * developer pokes don't belong on a manager dashboard. We keep them out
+ * of the activity strip — they're still visible in /runs ("Aktivität").
+ */
+function isBackgroundOrTestPrompt(prompt: string | null): boolean {
+  if (!prompt) return true;
+  const p = prompt.toLowerCase();
+  // Routine monitoring runs from the anomaly detector (German) and its
+  // legacy English title.
+  if (p.startsWith("routine-überwachung")) return true;
+  if (p.startsWith("scan ") && p.includes("anomal")) return true;
+  // Obviously-test shapes (CLI test runs, smoke prompts, evals).
+  return (
+    p.includes("budget test") ||
+    p.includes("smoke") ||
+    p.includes("noop") ||
+    p.endsWith(" test") ||
+    p === "test"
+  );
+}
+
 function riskMeta(level: string) {
   if (level === "high")
     return {
@@ -40,7 +62,13 @@ export default function Dashboard() {
   // Hide pytest fixtures from the dashboard so managers only see real work.
   // Power users can still drop the filter on /runs (which keeps everything).
   const pending = useRecommendations("pending", ["test"]);
-  const runs = useRuns(8, ["test"]);
+  const runs = useRuns(20, ["test"]);
+  // Also hide the automatic background scans + obvious test-shaped
+  // prompts ("budget test", "noop"); they're noise on an exec view.
+  // Keep up to 5 meaningful entries.
+  const meaningfulRuns = (runs.data ?? [])
+    .filter((r) => !isBackgroundOrTestPrompt(r.prompt))
+    .slice(0, 5);
 
   return (
     <div className="space-y-10">
@@ -148,14 +176,14 @@ export default function Dashboard() {
           <ErrorMessage error={runs.error} />
         ) : runs.isLoading ? (
           <Loading />
-        ) : !runs.data || runs.data.length === 0 ? (
+        ) : !runs.data || meaningfulRuns.length === 0 ? (
           <Card className="p-6 text-sm text-[var(--color-muted)] border-dashed">
             Noch keine Aktivität.
           </Card>
         ) : (
           <Card>
             <ul className="divide-y divide-[var(--color-border)]">
-              {runs.data.slice(0, 5).map((r) => (
+              {meaningfulRuns.map((r) => (
                 <li
                   key={r.run_id}
                   className="px-4 py-3 hover:bg-[var(--color-bg)]"

@@ -145,29 +145,151 @@ def detect_by_device(
     return insights
 
 
+DEVICE_DE = {
+    "mobile": "Mobile Geräten",
+    "desktop": "Desktop",
+    "tablet": "Tablets",
+}
+
+KPI_DE = {
+    "conversion_rate": "Conversion Rate",
+    "aov": "Bestellwert",
+    "gross_margin": "Bruttomarge",
+}
+
+
+def _de_date(d: date) -> str:
+    """German short date: '7. Apr. 2018'."""
+    months = [
+        "Jan.",
+        "Feb.",
+        "März",
+        "Apr.",
+        "Mai",
+        "Juni",
+        "Juli",
+        "Aug.",
+        "Sep.",
+        "Okt.",
+        "Nov.",
+        "Dez.",
+    ]
+    return f"{d.day}. {months[d.month - 1]} {d.year}"
+
+
+def _de_pct(value: float) -> str:
+    """4.23 → '4,23 %'."""
+    return f"{value * 100:.2f}".replace(".", ",") + " %"
+
+
+def _de_int(value: int) -> str:
+    """German thousands separator using a hard space."""
+    return f"{value:,}".replace(",", " ")
+
+
 def narrate(insight: Insight) -> tuple[str, str]:
-    direction = "fell" if insight.relative_change < 0 else "rose"
+    """Manager-readable German title + body for an anomaly insight.
+
+    Anti-jargon rules:
+    - No table or column names ('kpi.conversion_rate_daily', 'device=mobile').
+    - No technical statistics ('severity: medium', 'rolling window').
+    - Three clear sections in the body: Worum geht es / Datenbasis /
+      Vorschlag. A manager can read just the title and act.
+    """
+    kpi_label = KPI_DE.get(insight.kpi, insight.kpi)
+    segment_label = (
+        DEVICE_DE.get(insight.value, insight.value.capitalize())
+        if insight.dimension == "device"
+        else f"{insight.dimension}={insight.value}"
+    )
+
+    direction = "gefallen" if insight.relative_change < 0 else "gestiegen"
     rel_pct = abs(insight.relative_change) * 100
-    title = f"conversion_rate on {insight.value} {direction} {rel_pct:.1f}% ({insight.severity})"
+    rel_str = f"{rel_pct:.1f}".replace(".", ",") + " %"
+
+    severity_de = {
+        "high": "dringend",
+        "medium": "zu prüfen",
+        "low": "Hinweis",
+    }.get(insight.severity, insight.severity)
+
+    title = f"{kpi_label} auf {segment_label} um {rel_str} {direction}"
+
+    period_now = (
+        f"{_de_date(insight.period_now[0])} bis {_de_date(insight.period_now[1])}"
+    )
+    period_prior = (
+        f"{_de_date(insight.period_prior[0])} bis {_de_date(insight.period_prior[1])}"
+    )
+
     body = (
-        f"Conversion rate for {insight.dimension}={insight.value} {direction} "
-        f"from {insight.metric_prior * 100:.2f}% to {insight.metric_now * 100:.2f}% "
-        f"comparing window {insight.period_now[0]}..{insight.period_now[1]} "
-        f"vs prior {insight.period_prior[0]}..{insight.period_prior[1]}.\n\n"
-        f"Volume: {insight.sessions_now:,} sessions now vs "
-        f"{insight.sessions_prior:,} prior.\n"
-        f"Severity: {insight.severity}.\n\n"
-        f"Next steps: cross-reference with raw.releases and raw.campaigns active "
-        f"in the period; route to causal agent for an effect estimate."
+        f"Worum geht es: Die {kpi_label} auf {segment_label} ist "
+        f"im Zeitraum {period_now} von {_de_pct(insight.metric_prior)} auf "
+        f"{_de_pct(insight.metric_now)} {direction} — ein Rückgang von "
+        f"{rel_str} gegenüber dem Vergleichszeitraum {period_prior}.\n\n"
+        f"Datenbasis: {_de_int(insight.sessions_now)} Sitzungen im aktuellen "
+        f"Zeitfenster (Vorperiode: {_de_int(insight.sessions_prior)}). "
+        f"Einstufung: {severity_de}.\n\n"
+        f"Vorschlag: Eine vertiefte Kausalanalyse starten, um zu prüfen, ob "
+        f"ein konkretes Software-Release oder eine Marketing-Kampagne in "
+        f"diesem Zeitraum den Effekt erklärt. Sobald eine Ursache "
+        f"bestätigt ist, legen wir Ihnen eine konkrete Massnahme zur "
+        f"Freigabe vor."
     )
     return title, body
 
 
+def _pending_duplicate_exists(
+    component: str,
+    period_start: str,
+    period_end: str,
+    kpi: str,
+) -> bool:
+    """Return True if a pending recommendation for the same anomaly
+    already exists. Prevents flooding the queue when the detector is
+    triggered repeatedly (cron, manual scan, eval suite).
+
+    The "same anomaly" key is (kpi, component, period_start, period_end).
+    The KG insight carries those properties; we join on the audit row's
+    run_id to find them quickly.
+    """
+    sql = text(
+        "SELECT 1 "
+        "FROM audit.recommendations r "
+        "JOIN kg.nodes n "
+        "  ON n.external_ref = 'rec:' || r.rec_id "
+        " AND n.label = 'Insight' "
+        "WHERE r.status = 'pending' "
+        "  AND n.properties->>'component'    = :component "
+        "  AND n.properties->>'kpi'          = :kpi "
+        "  AND n.properties->>'period_start' = :ps "
+        "  AND n.properties->>'period_end'   = :pe "
+        "LIMIT 1"
+    )
+    with engine.connect() as conn:
+        row = conn.execute(
+            sql,
+            {
+                "component": component,
+                "kpi": kpi,
+                "ps": period_start,
+                "pe": period_end,
+            },
+        ).first()
+    return row is not None
+
+
 def run(reference_day: date | None = None) -> dict[str, Any]:
-    """Single end-to-end scan. Returns insights + recommendation ids."""
+    """Single end-to-end scan. Returns insights + recommendation ids.
+
+    Skips creating a duplicate recommendation when the same anomaly
+    (kpi + component + period) is already pending. This makes the
+    detector safe to run repeatedly (cron, manual, evals) without
+    flooding the HITL queue.
+    """
     with run_context(
         trigger="cli",
-        prompt="Scan conversion_rate for anomalies by device",
+        prompt="Routine-Überwachung der Conversion Rate nach Endgerät",
     ) as ctx:
         step_id = log_step(
             ctx,
@@ -185,7 +307,20 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
         finish_step(step_id, {"n_insights": len(insights), "reference_day": str(ref)})
 
         rec_ids: list[str] = []
+        skipped = 0
         for ins in insights:
+            component = f"{ins.dimension}={ins.value}"
+            period_start, period_end = str(ins.period_now[0]), str(ins.period_now[1])
+
+            if _pending_duplicate_exists(
+                component=component,
+                period_start=period_start,
+                period_end=period_end,
+                kpi=ins.kpi,
+            ):
+                skipped += 1
+                continue
+
             title, body = narrate(ins)
             rec_ids.append(
                 log_recommendation(
@@ -195,8 +330,8 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
                     confidence=0.6 if ins.severity == "high" else 0.4,
                     action_type="read_only",
                     risk_level=ins.severity,
-                    component=f"{ins.dimension}={ins.value}",
-                    period=(str(ins.period_now[0]), str(ins.period_now[1])),
+                    component=component,
+                    period=(period_start, period_end),
                     kg_extra={"kpi": ins.kpi, "relative_change": ins.relative_change},
                 )
             )
@@ -206,4 +341,5 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
             "reference_day": str(ref),
             "insights": [i.to_dict() for i in insights],
             "recommendation_ids": rec_ids,
+            "skipped_duplicates": skipped,
         }

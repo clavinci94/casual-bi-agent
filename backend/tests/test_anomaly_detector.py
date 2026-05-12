@@ -11,6 +11,25 @@ from biq.db import engine
 
 
 def test_detects_mobile_v2_regression(db_ready: bool) -> None:
+    # Anomaly.run() deduplicates against pending recommendations for the
+    # same (kpi, component, period). Clear any leftover so the assertion
+    # below — that THIS run creates a new recommendation_id — holds.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE audit.recommendations "
+                "SET status = 'archived' "
+                "WHERE status = 'pending' "
+                "  AND rec_id IN ( "
+                "    SELECT replace(n.external_ref, 'rec:', '') "
+                "    FROM kg.nodes n "
+                "    WHERE n.label = 'Insight' "
+                "      AND n.properties->>'component' = 'device=mobile' "
+                "      AND n.properties->>'kpi'       = 'conversion_rate' "
+                "  )"
+            )
+        )
+
     result = run(reference_day=date(2018, 5, 5))
 
     insights = result["insights"]
