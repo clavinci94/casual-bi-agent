@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals frontend-install frontend-dev frontend-build
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals frontend-install frontend-dev frontend-build shopify-sync shopify-sync-incremental
 
 help:
 	@echo "Targets:"
@@ -33,6 +33,8 @@ help:
 	@echo "  frontend-install  npm install in frontend/"
 	@echo "  frontend-dev      Next.js dev server on http://localhost:3000 (needs api-serve running)"
 	@echo "  frontend-build    Next.js production build"
+	@echo "  shopify-sync      Full sync from a Shopify dev-store into raw.shopify_* (see docs/shopify-setup.md)"
+	@echo "  shopify-sync-incremental  Only sync entities updated since last successful run"
 
 db-up:
 	docker compose up -d db
@@ -128,3 +130,9 @@ frontend-dev:
 
 frontend-build:
 	cd frontend && npm run build
+
+shopify-sync:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/shopify_sync.py $(SHOPIFY_ARGS)
+
+shopify-sync-incremental:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/shopify_sync.py --incremental

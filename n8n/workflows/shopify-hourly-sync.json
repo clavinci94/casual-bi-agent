@@ -1,0 +1,84 @@
+{
+  "name": "Shopify → causal-bi · stündliche Synchronisation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "trigger-hourly",
+      "name": "Alle 60 Min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 320]
+    },
+    {
+      "parameters": {
+        "command": "cd /opt/causal-bi && make shopify-sync-incremental"
+      },
+      "id": "exec-incremental-sync",
+      "name": "make shopify-sync-incremental",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [480, 320],
+      "notes": "Liest SHOPIFY_SHOP_DOMAIN und SHOPIFY_ADMIN_API_TOKEN aus der .env\nim Repo-Root und holt nur neue/aktualisierte Datensätze seit dem\nletzten erfolgreichen Lauf pro Entity."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/investigations/anomaly",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "trigger-anomaly-scan",
+      "name": "Trigger Anomaly-Scan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 320],
+      "notes": "Nach jedem Sync läuft der Anomalie-Detektor auf den frisch\nimportierten Daten. Neue Empfehlungen tauchen automatisch im\nDashboard auf — dedup-geschützt durch _pending_duplicate_exists()."
+    }
+  ],
+  "connections": {
+    "Alle 60 Min": {
+      "main": [
+        [
+          {
+            "node": "make shopify-sync-incremental",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "make shopify-sync-incremental": {
+      "main": [
+        [
+          {
+            "node": "Trigger Anomaly-Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Stündlicher inkrementeller Pull aus dem Shopify-Dev-Store ins lokale Postgres, gefolgt von einem Anomalie-Scan. Importiere diese JSON in n8n via Workflows → Import from File."
+  }
+}

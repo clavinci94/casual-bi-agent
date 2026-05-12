@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     newsapi_key: str | None = None
     alpha_vantage_key: str | None = None
 
+    # Shopify ETL source. See docs/shopify-setup.md for how to create the
+    # private app and where to copy the Admin API token. Both must be set
+    # for `make shopify-sync` to do anything.
+    shopify_shop_domain: str | None = None  # e.g. "causal-bi-demo.myshopify.com"
+    shopify_admin_api_token: str | None = None  # shpat_...
+    shopify_api_version: str = "2025-01"
+
     # When set, the HTTP API requires X-API-Key: <value> on /api/*.
     # Unset = open (dev mode).
     biq_api_key: str | None = None
