@@ -1,32 +1,38 @@
 "use client";
 
+import Link from "next/link";
+import {
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
 import { useReadiness, useRecommendations, useRuns } from "@/lib/hooks";
-import {
-  Card,
-  Empty,
-  ErrorMessage,
-  Loading,
-  MutedLink,
-  Pill,
-} from "@/components/ui";
-import {
-  fmtConfidence,
-  formatRelativeTime,
-  friendlyStatus,
-  friendlyTrigger,
-  statusTone,
-} from "@/lib/labels";
+import { Card, ErrorMessage, Loading, MutedLink } from "@/components/ui";
+import { formatRelativeTime } from "@/lib/labels";
 
-function riskTone(level: string) {
-  if (level === "high") return "danger" as const;
-  if (level === "medium") return "warning" as const;
-  return "neutral" as const;
-}
-
-function riskLabel(level: string) {
-  if (level === "high") return "Hohes Risiko";
-  if (level === "medium") return "Mittleres Risiko";
-  return "Niedriges Risiko";
+function riskMeta(level: string) {
+  if (level === "high")
+    return {
+      label: "Dringend",
+      icon: AlertTriangle,
+      ring: "ring-red-200 bg-red-50 text-red-700",
+      dot: "bg-[var(--color-danger)]",
+    } as const;
+  if (level === "medium")
+    return {
+      label: "Beachten",
+      icon: AlertCircle,
+      ring: "ring-amber-200 bg-amber-50 text-amber-700",
+      dot: "bg-[var(--color-warning)]",
+    } as const;
+  return {
+    label: "Hinweis",
+    icon: Info,
+    ring: "ring-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-muted)]",
+    dot: "bg-[var(--color-muted)]",
+  } as const;
 }
 
 export default function Dashboard() {
@@ -85,250 +91,254 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Value pillars — three short cards making the proposition concrete. */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <ValuePillar
-          title="Proaktive Anomalie-Erkennung"
-          body="Das System scannt Ihre KPIs kontinuierlich und flaggt statistisch signifikante Abweichungen — ohne dass jemand nachfragen muss."
-        />
-        <ValuePillar
-          title="Kausalanalyse statt Korrelation"
-          body="Bayesian Structural Time Series und Sensitivitätstests trennen echte Wirkungsbeziehungen von Zufallseffekten. Sie sehen die Effektgrösse mit 95 %-Konfidenzintervall und p-Wert."
-        />
-        <ValuePillar
-          title="Human-in-the-Loop"
-          body="Keine Massnahme wird ohne Ihre Freigabe wirksam. Jede Empfehlung trägt die vollständige Beweiskette mit — revisionssicher dokumentiert."
-        />
-      </section>
+      {/* Situation-at-a-glance — auto-summary of what the manager should know. */}
+      <SituationBanner
+        pendingCount={pending.data?.length ?? 0}
+        topRisk={
+          pending.data?.find((r) => r.risk_level === "high")?.risk_level ??
+          pending.data?.find((r) => r.risk_level === "medium")?.risk_level ??
+          (pending.data && pending.data.length > 0 ? "low" : null)
+        }
+        loading={pending.isLoading}
+      />
 
-      {/* Health row */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <HealthTile
-          label="API"
-          value={ready.data?.status}
-          loading={ready.isLoading}
-        />
-        <HealthTile
-          label="Database"
-          value={ready.data?.db}
-          loading={ready.isLoading}
-        />
-        <HealthTile
-          label="R service"
-          value={ready.data?.r_service}
-          loading={ready.isLoading}
-        />
-        <HealthTile
-          label="Version"
-          value={ready.data?.version}
-          loading={ready.isLoading}
-          plain
-        />
-      </section>
-
-      {/* Pending HITL queue */}
+      {/* Pending recommendations as memo cards with icons + CTA */}
       <section>
-        <SectionHeading
-          title="Empfehlungen mit offener Freigabe"
-          lead={
-            <>
-              Massnahmenvorschläge, die das System nach einer abgeschlossenen
-              Analyse für Sie erstellt hat. <strong>Keine</strong> Empfehlung
-              wird ohne Ihre Entscheidung wirksam. Klicken Sie eine Karte an,
-              um die vollständige Beweisführung zu sehen und freizugeben oder
-              abzulehnen.
-            </>
-          }
-          hint={
-            pending.data
-              ? `${pending.data.length} offen`
-              : undefined
-          }
-        />
-        <Card>
-          {pending.error ? (
-            <div className="p-4">
-              <ErrorMessage error={pending.error} />
+        <div className="mb-4 flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Empfehlungen zur Freigabe
+            {pending.data && pending.data.length > 0 ? (
+              <span className="ml-2 text-sm font-normal text-[var(--color-muted)]">
+                · {pending.data.length} offen
+              </span>
+            ) : null}
+          </h2>
+        </div>
+        {pending.error ? (
+          <ErrorMessage error={pending.error} />
+        ) : pending.isLoading ? (
+          <Loading />
+        ) : !pending.data || pending.data.length === 0 ? (
+          <Card className="p-6 flex items-start gap-3 border-dashed">
+            <CheckCircle2 className="size-5 text-[var(--color-success)] shrink-0 mt-0.5" />
+            <div>
+              <div className="font-medium">Alles im grünen Bereich.</div>
+              <div className="text-sm text-[var(--color-muted)] mt-0.5">
+                Es liegen aktuell keine offenen Empfehlungen vor. Das System
+                meldet sich, sobald es etwas Auffälliges erkennt.
+              </div>
             </div>
-          ) : pending.isLoading ? (
-            <div className="p-4">
-              <Loading />
-            </div>
-          ) : !pending.data || pending.data.length === 0 ? (
-            <Empty>
-              Aktuell keine offenen Empfehlungen. Das System meldet sich
-              automatisch, sobald es etwas Auffälliges findet.
-            </Empty>
-          ) : (
-            <ul className="divide-y divide-[var(--color-border)]">
-              {pending.data.slice(0, 8).map((r) => (
-                <li key={r.rec_id} className="p-4 hover:bg-[var(--color-bg)]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <Pill tone={riskTone(r.risk_level)}>
-                          {riskLabel(r.risk_level)}
-                        </Pill>
-                        {fmtConfidence(r.confidence) ? (
-                          <Pill tone="neutral">
-                            {fmtConfidence(r.confidence)}
-                          </Pill>
-                        ) : null}
-                        <span className="text-xs text-[var(--color-muted)]">
-                          {formatRelativeTime(r.created_at)}
-                        </span>
-                      </div>
-                      <MutedLink href={`/recommendations/${r.rec_id}`}>
-                        <span className="font-medium text-[var(--color-fg)] hover:underline">
-                          {r.title}
-                        </span>
-                      </MutedLink>
-                      <p className="text-sm text-[var(--color-muted)] mt-1 line-clamp-2 leading-relaxed">
-                        {r.body}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {pending.data.slice(0, 6).map((r) => (
+              <RecommendationMemo key={r.rec_id} rec={r} />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Recent investigations — what the agent has been working on. */}
+      {/* Activity strip — what the agent has been doing */}
       <section>
-        <SectionHeading
-          title="Letzte Analysen"
-          lead={
-            <>
-              Was das System zuletzt für Sie untersucht hat — entweder auf
-              Anfrage über das Dashboard oder als geplante Routineanalyse.
-              Jeder Eintrag enthält die vollständige nachvollziehbare
-              Beweiskette.
-            </>
-          }
-          action={<MutedLink href="/runs">Alle Analysen ansehen →</MutedLink>}
-        />
-        <Card>
-          {runs.error ? (
-            <div className="p-4">
-              <ErrorMessage error={runs.error} />
-            </div>
-          ) : runs.isLoading ? (
-            <div className="p-4">
-              <Loading />
-            </div>
-          ) : !runs.data || runs.data.length === 0 ? (
-            <Empty>
-              Noch keine Analysen vorhanden. Starten Sie die erste über{" "}
-              <span className="font-medium">„Neue Untersuchung“</span>.
-            </Empty>
-          ) : (
+        <div className="mb-4 flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">Aktivität</h2>
+          <MutedLink href="/runs">Alle anzeigen →</MutedLink>
+        </div>
+        {runs.error ? (
+          <ErrorMessage error={runs.error} />
+        ) : runs.isLoading ? (
+          <Loading />
+        ) : !runs.data || runs.data.length === 0 ? (
+          <Card className="p-6 text-sm text-[var(--color-muted)] border-dashed">
+            Noch keine Aktivität.
+          </Card>
+        ) : (
+          <Card>
             <ul className="divide-y divide-[var(--color-border)]">
-              {runs.data.map((r) => (
-                <li key={r.run_id} className="p-4 hover:bg-[var(--color-bg)]">
-                  <MutedLink href={`/runs/${r.run_id}`}>
-                    <span className="font-medium text-[var(--color-fg)] hover:underline">
+              {runs.data.slice(0, 5).map((r) => (
+                <li
+                  key={r.run_id}
+                  className="px-4 py-3 hover:bg-[var(--color-bg)]"
+                >
+                  <Link
+                    href={`/runs/${r.run_id}`}
+                    className="flex items-center gap-3"
+                  >
+                    <span
+                      className={`size-2 rounded-full shrink-0 ${
+                        r.status === "ok"
+                          ? "bg-[var(--color-success)]"
+                          : r.status === "running"
+                            ? "bg-[var(--color-accent)] animate-pulse"
+                            : r.status === "error"
+                              ? "bg-[var(--color-danger)]"
+                              : "bg-[var(--color-muted)]"
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-[var(--color-fg)] truncate flex-1">
                       {r.prompt ?? "(ohne Titel)"}
                     </span>
-                  </MutedLink>
-                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                    <Pill tone={statusTone(r.status)}>
-                      {friendlyStatus(r.status)}
-                    </Pill>
-                    <span className="text-xs text-[var(--color-muted)]">
-                      {friendlyTrigger(r.trigger)} ·{" "}
+                    <span className="text-xs text-[var(--color-muted)] shrink-0">
                       {formatRelativeTime(r.started_at)}
                     </span>
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>
-          )}
-        </Card>
+          </Card>
+        )}
+      </section>
+
+      {/* Discreet system status footer */}
+      <section className="pt-4 border-t border-[var(--color-border)]">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[var(--color-muted)]">
+          <SystemDot
+            label="Plattform"
+            ok={ready.data?.status === "ok"}
+            loading={ready.isLoading}
+          />
+          <SystemDot
+            label="Datenbank"
+            ok={ready.data?.db === "ok"}
+            loading={ready.isLoading}
+          />
+          <SystemDot
+            label="Statistik-Service"
+            ok={ready.data?.r_service === "ok"}
+            loading={ready.isLoading}
+          />
+          {ready.data?.version ? (
+            <span className="ml-auto mono">v{ready.data.version}</span>
+          ) : null}
+        </div>
       </section>
     </div>
   );
 }
 
-/**
- * Section heading with a manager-readable lead paragraph beneath the
- * title. Use this instead of <SectionTitle/> when the user needs context
- * about what the section actually is.
- */
-function SectionHeading({
-  title,
-  lead,
-  hint,
-  action,
+/** Top-line banner: tells the manager what state the business is in. */
+function SituationBanner({
+  pendingCount,
+  topRisk,
+  loading,
 }: {
-  title: string;
-  lead?: React.ReactNode;
-  hint?: string;
-  action?: React.ReactNode;
+  pendingCount: number;
+  topRisk: string | null;
+  loading: boolean;
 }) {
-  return (
-    <div className="mb-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {title}
-          {hint ? (
-            <span className="ml-2 text-sm font-normal text-[var(--color-muted)]">
-              · {hint}
-            </span>
-          ) : null}
-        </h2>
-        {action}
-      </div>
-      {lead ? (
-        <p className="mt-1.5 text-sm text-[var(--color-muted)] max-w-3xl leading-relaxed">
-          {lead}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+  if (loading) {
+    return (
+      <Card className="p-5">
+        <Loading label="Lage wird ermittelt …" />
+      </Card>
+    );
+  }
+  if (pendingCount === 0) {
+    return (
+      <Card className="p-5 flex items-start gap-3 bg-emerald-50 border-emerald-200">
+        <CheckCircle2 className="size-6 text-emerald-600 shrink-0" />
+        <div>
+          <div className="font-semibold text-emerald-900">
+            Keine offenen Punkte
+          </div>
+          <div className="text-sm text-emerald-800 mt-0.5">
+            Das System überwacht Ihre Kennzahlen im Hintergrund. Sie werden
+            informiert, sobald etwas Bemerkenswertes auffällt.
+          </div>
+        </div>
+      </Card>
+    );
+  }
+  const meta = riskMeta(topRisk ?? "low");
+  const Icon = meta.icon;
+  const subject =
+    topRisk === "high"
+      ? "Dringende Empfehlung"
+      : topRisk === "medium"
+        ? "Empfehlung zur Prüfung"
+        : "Information";
 
-function ValuePillar({ title, body }: { title: string; body: string }) {
   return (
-    <Card className="p-5">
-      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-      <p className="mt-2 text-sm text-[var(--color-muted)] leading-relaxed">
-        {body}
-      </p>
+    <Card
+      className={`p-5 flex items-start gap-3 ring-1 ${meta.ring} border-transparent`}
+    >
+      <Icon className="size-6 shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <div className="font-semibold">
+          {pendingCount === 1
+            ? `${subject} wartet auf Sie`
+            : `${pendingCount} Empfehlungen warten auf Sie`}
+        </div>
+        <div className="text-sm mt-0.5 opacity-90">
+          {topRisk === "high"
+            ? "Mindestens eine davon ist als dringend eingestuft. Prüfen Sie sie zuerst."
+            : "Bitte unten durchsehen und freigeben oder ablehnen."}
+        </div>
+      </div>
     </Card>
   );
 }
 
-function HealthTile({
+function RecommendationMemo({
+  rec,
+}: {
+  rec: import("@/lib/types").Recommendation;
+}) {
+  const meta = riskMeta(rec.risk_level);
+  const Icon = meta.icon;
+  return (
+    <Link
+      href={`/recommendations/${rec.rec_id}`}
+      className="group block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 hover:border-[var(--color-accent)] transition-colors"
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${meta.ring}`}
+        >
+          <Icon className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] uppercase tracking-wider font-medium opacity-80">
+            {meta.label} · {formatRelativeTime(rec.created_at)}
+          </div>
+          <h3 className="text-base font-semibold mt-0.5 leading-snug">
+            {rec.title}
+          </h3>
+          <p className="text-sm text-[var(--color-muted)] mt-2 line-clamp-3 leading-relaxed">
+            {rec.body}
+          </p>
+          <div className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[var(--color-accent)] group-hover:gap-2 transition-all">
+            Ansehen und entscheiden
+            <ArrowRight className="size-4" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function SystemDot({
   label,
-  value,
+  ok,
   loading,
-  plain = false,
 }: {
   label: string;
-  value: string | undefined;
+  ok: boolean;
   loading: boolean;
-  plain?: boolean;
 }) {
   return (
-    <Card className="px-4 py-3">
-      <div className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-        {label}
-      </div>
-      <div className="mt-1 flex items-center gap-2">
-        {loading ? (
-          <span className="text-sm text-[var(--color-muted)] animate-pulse">
-            …
-          </span>
-        ) : plain ? (
-          <span className="mono text-sm">{value ?? "—"}</span>
-        ) : (
-          <Pill tone={value === "ok" ? "success" : "danger"}>
-            {value ?? "—"}
-          </Pill>
-        )}
-      </div>
-    </Card>
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={`size-1.5 rounded-full ${
+          loading
+            ? "bg-[var(--color-muted)] animate-pulse"
+            : ok
+              ? "bg-[var(--color-success)]"
+              : "bg-[var(--color-danger)]"
+        }`}
+      />
+      {label}
+    </span>
   );
 }
+

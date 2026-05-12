@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { api } from "@/lib/api";
+import { KpiIcon } from "@/components/kpi-icon";
 import { Sparkline } from "@/components/sparkline";
 import {
   demoAnchorDate,
@@ -12,15 +14,15 @@ import {
   summarise,
   trendTone,
 } from "@/lib/kpi-format";
-import { OWNER_LABELS, type KpiMeta } from "@/lib/kpi-metadata";
+import { type KpiMeta } from "@/lib/kpi-metadata";
 
 /**
- * A single KPI card. Fetches its own data so the index page can render
- * 8 of them concurrently — SWR dedups identical requests and caches
- * results between navigations.
+ * Manager-facing KPI card. Visual hierarchy: icon → name → subtitle →
+ * big number → trend → sparkline. No metric jargon, no technical column
+ * names. The card fetches its own data so the index can render all of
+ * them in parallel.
  */
 export function KpiTile({ view, meta }: { view: string; meta: KpiMeta }) {
-  // Demo data lives in 2018; anchor against that so cards aren't empty.
   const anchor = demoAnchorDate();
   const end = anchor.toISOString().slice(0, 10);
   const start = isoDaysBack(meta.defaultRangeDays, anchor);
@@ -30,107 +32,70 @@ export function KpiTile({ view, meta }: { view: string; meta: KpiMeta }) {
     () => api.queryKpi(view, { start, end }),
   );
 
-  // Reduce to a single value-series, aggregating across the date column if
-  // there are multiple rows per day (e.g. by device — sum or average).
   const series = aggregateToDaily(data?.rows ?? [], meta);
   const summary = summarise(series.map((p) => p.value));
   const tone = trendTone(summary.delta, meta.higherIsBetter);
 
+  const accent =
+    tone === "good"
+      ? "text-[var(--color-success)]"
+      : tone === "bad"
+        ? "text-[var(--color-danger)]"
+        : "text-[var(--color-muted)]";
+
   return (
     <Link href={`/kpis/${encodeURIComponent(view)}`}>
-      <div className="group relative h-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 hover:border-[var(--color-accent)] transition-colors cursor-pointer">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wider text-[var(--color-muted)] font-medium">
-              {OWNER_LABELS[meta.owner]}
-            </div>
-            <h3 className="text-base font-semibold mt-0.5 leading-tight">
+      <div className="group h-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 hover:border-[var(--color-accent)] transition-colors cursor-pointer">
+        <div className="flex items-start gap-3">
+          <div className="size-10 rounded-xl bg-[var(--color-bg)] flex items-center justify-center text-[var(--color-fg)] shrink-0">
+            <KpiIcon name={meta.icon} className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold leading-tight">
               {meta.title}
             </h3>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5 line-clamp-2">
+              {meta.subtitle}
+            </p>
           </div>
-          <TrendArrow tone={tone} />
         </div>
 
         <div className="mt-4 flex items-end justify-between gap-3">
           <div>
-            <div className="text-3xl font-semibold tabular-nums">
+            <div className="text-3xl font-semibold tabular-nums leading-none">
               {isLoading ? (
                 <span className="inline-block w-20 h-7 bg-[var(--color-bg)] animate-pulse rounded" />
               ) : error ? (
-                <span className="text-base text-[var(--color-danger)] mono">
-                  err
-                </span>
+                <span className="text-base text-[var(--color-danger)]">—</span>
               ) : (
                 formatKpi(summary.current, meta.unit)
               )}
             </div>
-            <DeltaText delta={summary.delta} tone={tone} />
+            <div className={`text-xs mt-2 flex items-center gap-1 ${accent} tabular-nums`}>
+              <TrendIcon tone={tone} />
+              <span>{formatDelta(summary.delta)}</span>
+              <span className="text-[var(--color-muted)]">ggü. Vorperiode</span>
+            </div>
           </div>
-          <div
-            className={
-              tone === "good"
-                ? "text-[var(--color-success)]"
-                : tone === "bad"
-                  ? "text-[var(--color-danger)]"
-                  : "text-[var(--color-muted)]"
-            }
-          >
+          <div className={accent}>
             <Sparkline values={series.map((p) => p.value)} />
           </div>
         </div>
-
-        <p className="mt-4 text-xs text-[var(--color-muted)] line-clamp-2">
-          {meta.description}
-        </p>
       </div>
     </Link>
   );
 }
 
-function TrendArrow({ tone }: { tone: "good" | "bad" | "flat" }) {
-  const color =
-    tone === "good"
-      ? "text-[var(--color-success)]"
-      : tone === "bad"
-        ? "text-[var(--color-danger)]"
-        : "text-[var(--color-muted)]";
-  const symbol = tone === "good" ? "▲" : tone === "bad" ? "▼" : "■";
-  return (
-    <div className={`text-sm font-bold ${color}`} aria-hidden="true">
-      {symbol}
-    </div>
-  );
-}
-
-function DeltaText({
-  delta,
-  tone,
-}: {
-  delta: number | null;
-  tone: "good" | "bad" | "flat";
-}) {
-  const color =
-    tone === "good"
-      ? "text-[var(--color-success)]"
-      : tone === "bad"
-        ? "text-[var(--color-danger)]"
-        : "text-[var(--color-muted)]";
-  return (
-    <div className={`text-xs mt-1 ${color} tabular-nums`}>
-      {formatDelta(delta)} ggü. Vorperiode
-    </div>
-  );
+function TrendIcon({ tone }: { tone: "good" | "bad" | "flat" }) {
+  if (tone === "good") return <TrendingUp className="size-3.5" />;
+  if (tone === "bad") return <TrendingDown className="size-3.5" />;
+  return <Minus className="size-3.5" />;
 }
 
 // --- Aggregation -------------------------------------------------------
 
 type Point = { date: string; value: number | null };
 
-/**
- * Collapse rows (which may include extra dimensions like device or
- * channel) into one value per day. For ratio metrics we average,
- * for monetary metrics we sum — driven by the KPI unit.
- */
 function aggregateToDaily(
   rows: Record<string, unknown>[],
   meta: KpiMeta,
@@ -139,16 +104,14 @@ function aggregateToDaily(
   const valueField = meta.valueField;
   if (rows.length === 0) return [];
 
+  const scale = meta.valueScale ?? 1;
   const sumOrMean = meta.unit === "currency_chf" || meta.unit === "count";
 
-  const scale = meta.valueScale ?? 1;
   const buckets = new Map<string, number[]>();
   for (const r of rows) {
     const d = r[dateField];
     const raw = r[valueField];
     if (typeof d !== "string") continue;
-    // Postgres numeric arrives as a string from psycopg's default codec —
-    // coerce here so we don't drop every row silently.
     const num =
       typeof raw === "number"
         ? raw

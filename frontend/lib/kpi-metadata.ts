@@ -27,6 +27,17 @@ export const OWNER_LABELS: Record<KpiOwner, string> = {
 
 export type KpiUnit = "percent" | "currency_chf" | "days" | "score" | "count";
 
+/** Key into the lucide icon set (see components/kpi-icon.tsx). */
+export type KpiIconKey =
+  | "cart"
+  | "wallet"
+  | "piggy"
+  | "truck"
+  | "star"
+  | "undo"
+  | "repeat"
+  | "churn";
+
 export type GroupOption = {
   /** column name in the row payload */
   field: string;
@@ -40,30 +51,33 @@ export type KpiMeta = {
   unit: KpiUnit;
   /**
    * Multiplier applied to the raw column before formatting.
-   * - Columns ending in `_pct` (DB convention) are already in percent
-   *   (e.g. 40.34 means 40.34 %). With unit=percent + scale=0.01 the
-   *   formatter sees a 0..1 fraction and shows "40.3 %".
+   * - _pct columns (DB convention) are 0..100; set scale=0.01 so the
+   *   formatter sees a 0..1 fraction and renders "40.3 %".
    * - Currency views still expose BRL — set scale to the BRL→CHF rate
    *   (0.16 per the project ADR) and unit to currency_chf.
-   * - For columns already in the target unit (e.g. gross_margin is a
-   *   0..1 fraction, p95_days is days), leave scale at 1.
+   * - For columns already in the target unit (gross_margin is a 0..1
+   *   fraction, p95_days is days), leave scale at 1.
    */
   valueScale: number;
-  /** plain-language title shown in cards + headlines */
+  /** Short, manager-readable title shown on cards. Keep ≤ 3 words. */
   title: string;
-  /** one-sentence plain-language description */
+  /** One-line "what does this measure" — shown right under the title. */
+  subtitle: string;
+  /** Longer description used on the detail page only. */
   description: string;
-  /** what to watch out for (mirrors "typical_misinterpretation" in the yaml) */
+  /** What to watch out for (mirrors "typical_misinterpretation"). */
   caveat?: string;
-  /** business team responsible — used for grouping in the index */
+  /** Business team responsible — used for grouping. */
   owner: KpiOwner;
-  /** "day" or "week" — what the date column is called */
+  /** Visual icon. */
+  icon: KpiIconKey;
+  /** "day" or "week" — what the date column is called. */
   dateField: "day" | "week";
-  /** if higher = better. Drives the colour of the trend arrow. */
+  /** If higher = better. Drives the colour of the trend arrow. */
   higherIsBetter: boolean;
-  /** default time window (days back from today / latest data) */
+  /** Default time window. */
   defaultRangeDays: number;
-  /** options the user can compare by */
+  /** Options the user can compare by. */
   groupOptions: GroupOption[];
 };
 
@@ -75,12 +89,14 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "conversion_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "Conversion Rate",
+    title: "Kaufabschlüsse",
+    subtitle: "Wie viele Besucher tatsächlich kaufen",
     description:
       "Anteil der Besucher-Sitzungen, die mindestens eine Bestellung auslösen. Die zentrale Funnel-Kennzahl des Online-Shops.",
     caveat:
       "Bot-Traffic ist enthalten, solange er nicht ausdrücklich gefiltert wird.",
     owner: "Marketing",
+    icon: "cart",
     dateField: "day",
     higherIsBetter: true,
     defaultRangeDays: 30,
@@ -93,12 +109,14 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "aov_brl",
     valueScale: BRL_TO_CHF,
     unit: "currency_chf",
-    title: "Durchschnittlicher Bestellwert",
+    title: "Bestellwert",
+    subtitle: "Was ein Kunde im Schnitt ausgibt",
     description:
       "Mittlerer Umsatz pro Bestellung in CHF (umgerechnet aus BRL zum dokumentierten Festkurs). Zeigt, wie viel Kunden pro Checkout ausgeben.",
     caveat:
       "Frachtkosten sind nicht abgezogen — dafür die Bruttomarge betrachten. Der CHF-Wert basiert auf einem festen BRL-Kurs; ADR aktualisieren, wenn sich der Kurs spürbar bewegt.",
     owner: "Revenue",
+    icon: "wallet",
     dateField: "day",
     higherIsBetter: true,
     defaultRangeDays: 30,
@@ -112,11 +130,13 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueScale: 1,
     unit: "percent",
     title: "Bruttomarge",
+    subtitle: "Was vom Umsatz übrig bleibt",
     description:
       "Umsatz minus Wareneinstandskosten und Fracht, als Anteil am Umsatz. Der Gesundheits-Check für die Profitabilität.",
     caveat:
       "Die Wareneinstandskosten werden aus Produktgewicht × Festwert geschätzt — als Richtgrösse zu verstehen, nicht als exakter Wert.",
     owner: "Finance",
+    icon: "piggy",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
@@ -129,10 +149,12 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "p95_days",
     valueScale: 1,
     unit: "days",
-    title: "Lieferzeit (95 %-Perzentil)",
+    title: "Lieferzeit",
+    subtitle: "Wie lange die langsamsten Lieferungen brauchen",
     description:
       "Wie lange die langsamsten 5 % der Lieferungen dauern, in Arbeitstagen. Ein Kundenerlebnis-Indikator — steigt dieser Wert, häufen sich Beschwerden.",
     owner: "Logistics",
+    icon: "truck",
     dateField: "day",
     higherIsBetter: false,
     defaultRangeDays: 30,
@@ -145,10 +167,12 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "avg_score",
     valueScale: 1,
     unit: "score",
-    title: "Durchschnittliche Bewertung",
+    title: "Kundenzufriedenheit",
+    subtitle: "Durchschnittliche Sterne-Bewertung",
     description:
       "Mittlere Kundenbewertung (1 bis 5), gewichtet auf die letzten 90 Tage. Frühwarn-Signal für Qualitätsprobleme.",
     owner: "Quality",
+    icon: "star",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
@@ -158,10 +182,12 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "refund_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "Rückgabequote",
+    title: "Rückgaben",
+    subtitle: "Anteil stornierter oder retournierter Bestellungen",
     description:
       "Anteil der Bestellungen, die storniert oder nicht verfügbar sind. Eine hohe oder steigende Quote belastet die Marge und deutet auf operative Probleme hin.",
     owner: "Finance",
+    icon: "undo",
     dateField: "week",
     higherIsBetter: false,
     defaultRangeDays: 90,
@@ -175,10 +201,12 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "repeat_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "Wiederholungskauf-Rate",
+    title: "Wiederkäufer",
+    subtitle: "Kunden, die ein zweites Mal bestellen",
     description:
       "Anteil der Kunden, die innerhalb von 90 Tagen ein zweites Mal bestellen. Der beste einzelne Frühindikator für langfristigen Umsatz.",
     owner: "Retention",
+    icon: "repeat",
     dateField: "week",
     higherIsBetter: true,
     defaultRangeDays: 90,
@@ -191,12 +219,14 @@ export const KPI_META: Record<string, KpiMeta> = {
     valueField: "churn_rate_pct",
     valueScale: 0.01,
     unit: "percent",
-    title: "30-Tage-Abwanderung",
+    title: "Abwanderung",
+    subtitle: "Kunden, die nicht mehr kaufen",
     description:
       "Anteil der zuletzt aktiven Kunden, die in den letzten 30 Tagen aufgehört haben zu kaufen. Das Gegenteil von Kundenbindung.",
     caveat:
       "Einmal-Kunden werden tendenziell als Abwanderer überbewertet.",
     owner: "Retention",
+    icon: "churn",
     dateField: "week",
     higherIsBetter: false,
     defaultRangeDays: 90,
