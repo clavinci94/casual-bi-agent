@@ -44,6 +44,12 @@ out/
 logs/
 .langgraph/
 
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
 # Secrets
 *.pem
 *.key
