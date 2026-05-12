@@ -77,11 +77,19 @@ RULES
   semantic layer; never invent or estimate numbers yourself.
 - When you detect a drop or spike, cross-reference releases_in_window
   and campaigns_in_window for the same period to find candidate treatments.
+- If the affected segment looks small (low daily sessions), call power_test
+  with the baseline rate, the expected post-treatment rate, and the per-group
+  sample size BEFORE causal_impact_conversion. If power < 0.8, say so and
+  treat any null result as ambiguous, not as evidence of no effect.
 - For an evidence-backed causal claim, call causal_impact_conversion with
   a clear pre/post period and synthetic-control devices. Only then upgrade
   language from "correlates with" to "caused by ~X% (95% CI [...])".
+- When the causal estimate is significant, call evalue with the relative
+  effect (and lower CI bound) to quantify how robust the claim is to
+  unmeasured confounders. Mention the E-value in record_finding so the
+  reviewer sees the sensitivity, not just the point estimate.
 - Cite the data in your reasoning: period, magnitude, segment, sample size,
-  p-value when available.
+  p-value, and E-value when available.
 - Call record_finding once per distinct, evidence-backed conclusion.
   Set risk_level=high only when both magnitude and sample size warrant it.
 - Be concise. Managers read the title and first sentence."""
@@ -197,6 +205,53 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "evalue",
+        "description": (
+            "Sensitivity analysis (VanderWeele 2017): minimum strength an "
+            "unmeasured confounder would need to fully explain the observed "
+            "effect away. Call AFTER causal_impact_conversion when the effect "
+            "is significant — higher e_value = more robust causal claim. "
+            "Quote it in the finding alongside the p-value."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rel_effect": {
+                    "type": "number",
+                    "description": "Fractional change, e.g. -0.384 for -38.4%.",
+                },
+                "rel_effect_lower": {
+                    "type": "number",
+                    "description": "Optional signed lower 95% CI bound for a CI-edge E-value.",
+                },
+            },
+            "required": ["rel_effect"],
+        },
+    },
+    {
+        "name": "power_test",
+        "description": (
+            "Two-proportion power analysis. Pass exactly three of "
+            "{p1, p2, n, power}; the missing one is solved. Use BEFORE "
+            "causal_impact_conversion when sample is small: power < 0.8 "
+            "means an insignificant result is ambiguous, not negative."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "p1": {"type": "number", "description": "Baseline proportion (0..1)."},
+                "p2": {"type": "number", "description": "Alternative proportion (0..1)."},
+                "n": {"type": "integer", "description": "Sample size per group."},
+                "power": {"type": "number", "description": "Desired power (0..1)."},
+                "sig_level": {
+                    "type": "number",
+                    "default": 0.05,
+                    "description": "Two-sided alpha, default 0.05.",
+                },
+            },
+        },
+    },
+    {
         "name": "record_finding",
         "description": (
             "Persist a finding as a recommendation in the audit log. "
@@ -228,6 +283,10 @@ def _dispatch(name: str, params: dict[str, Any], run_id: str) -> dict[str, Any]:
         return ctx_tools.campaigns_in_window(**params)
     if name == "causal_impact_conversion":
         return causal_tools.causal_impact_conversion(**params)
+    if name == "evalue":
+        return causal_tools.evalue(**params)
+    if name == "power_test":
+        return causal_tools.power_test(**params)
     if name == "kg_lookup_past_decisions":
         return kg_tools.lookup_past_decisions(**params)
     if name == "record_finding":

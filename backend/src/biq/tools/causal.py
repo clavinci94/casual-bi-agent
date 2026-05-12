@@ -121,6 +121,97 @@ def causal_impact_conversion(
     }
 
 
+def evalue(rel_effect: float, rel_effect_lower: float | None = None) -> dict[str, Any]:
+    """E-value sensitivity analysis (VanderWeele & Ding 2017).
+
+    Quantifies how strong an unmeasured confounder would need to be (on the
+    risk-ratio scale) to fully explain away the observed relative effect.
+
+    Args:
+        rel_effect: Point estimate as a fractional change, e.g. -0.38 for -38%.
+            Must be > -1.
+        rel_effect_lower: Optional lower 95% CI bound — also signed. When
+            provided, the response includes an E-value for the CI bound closest
+            to the null hypothesis.
+
+    Returns:
+        Dict with e_value (point), e_value_ci_bound (None if not provided or if
+        the CI crosses the null), rr_point, and an interpretation string.
+    """
+    body: dict[str, Any] = {"rel_effect": rel_effect}
+    if rel_effect_lower is not None:
+        body["rel_effect_lower"] = rel_effect_lower
+
+    resp = httpx.post(f"{R_BASE_URL}/sensitivity", json=body, timeout=_TIMEOUT_S)
+    if resp.status_code != 200:
+        return {
+            "error": f"r-service returned {resp.status_code}",
+            "detail": resp.text[:500],
+        }
+
+    payload = resp.json()
+    return {
+        "e_value": _scalar(payload.get("e_value")),
+        "e_value_ci_bound": _scalar(payload.get("e_value_ci_bound")),
+        "rel_effect": _scalar(payload.get("rel_effect")),
+        "rr_point": _scalar(payload.get("rr_point")),
+        "interpretation": _scalar(payload.get("interpretation")),
+    }
+
+
+def power_test(
+    p1: float | None = None,
+    p2: float | None = None,
+    n: int | None = None,
+    power: float | None = None,
+    sig_level: float = 0.05,
+) -> dict[str, Any]:
+    """Two-proportion power analysis (stats::power.prop.test, two-sided).
+
+    Pass exactly three of {p1, p2, n, power}; the R service solves for the
+    fourth. Use this BEFORE running causal_impact_conversion: if power < 0.8,
+    the sample is too small to detect the effect you care about, and an
+    insignificant result will be ambiguous.
+
+    Args:
+        p1: Baseline proportion in (0, 1), e.g. 0.04 for a 4% conversion rate.
+        p2: Alternative proportion in (0, 1).
+        n: Sample size per group (e.g. sessions on the target device per day
+           multiplied by the window length).
+        power: Desired power in (0, 1). 0.8 is the standard target.
+        sig_level: Two-sided significance level. Default 0.05.
+
+    Returns:
+        Dict with all four values (n, p1, p2, power) plus rel_effect and the
+        method label. The argument left as None is the solved value.
+    """
+    given = sum(x is not None for x in (n, p1, p2, power))
+    if given != 3:
+        return {
+            "error": f"pass exactly three of n, p1, p2, power (got {given})",
+        }
+
+    body: dict[str, Any] = {"sig_level": sig_level}
+    if n is not None:
+        body["n"] = n
+    if p1 is not None:
+        body["p1"] = p1
+    if p2 is not None:
+        body["p2"] = p2
+    if power is not None:
+        body["power"] = power
+
+    resp = httpx.post(f"{R_BASE_URL}/power", json=body, timeout=_TIMEOUT_S)
+    if resp.status_code != 200:
+        return {
+            "error": f"r-service returned {resp.status_code}",
+            "detail": resp.text[:500],
+        }
+
+    payload = resp.json()
+    return {k: _scalar(v) for k, v in payload.items()}
+
+
 def _scalar(x: Any) -> Any:
     """Plumber wraps single scalars as one-element arrays in JSON. Unwrap them."""
     if isinstance(x, list) and len(x) == 1:

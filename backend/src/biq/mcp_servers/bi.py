@@ -139,6 +139,51 @@ def causal_impact_conversion(
     )
 
 
+@mcp.tool()
+def evalue(
+    rel_effect: float,
+    rel_effect_lower: float | None = None,
+) -> dict[str, Any]:
+    """E-value sensitivity analysis (VanderWeele & Ding 2017).
+
+    Call AFTER causal_impact_conversion when the effect is significant.
+    The E-value is the minimum association strength (on the risk-ratio scale)
+    that an unmeasured confounder would need to have with both treatment and
+    outcome to fully explain the observed effect away. Higher = more robust.
+
+    Args:
+        rel_effect: Point estimate as a fractional change (e.g. -0.384 for -38.4 %).
+        rel_effect_lower: Optional signed lower 95 % CI bound. Adds an E-value
+            for the CI edge closest to the null.
+    """
+    return causal_tools.evalue(rel_effect=rel_effect, rel_effect_lower=rel_effect_lower)
+
+
+@mcp.tool()
+def power_test(
+    p1: float | None = None,
+    p2: float | None = None,
+    n: int | None = None,
+    power: float | None = None,
+    sig_level: float = 0.05,
+) -> dict[str, Any]:
+    """Two-proportion power analysis (two-sided).
+
+    Pass exactly three of {p1, p2, n, power}; the R service solves for the
+    fourth. Use this BEFORE causal_impact_conversion when you suspect the
+    sample is small — if power < 0.8, an insignificant result is ambiguous
+    rather than evidence of no effect.
+
+    Args:
+        p1: Baseline proportion in (0, 1).
+        p2: Alternative proportion in (0, 1).
+        n: Sample size per group.
+        power: Desired power in (0, 1). 0.8 is the standard target.
+        sig_level: Two-sided alpha, default 0.05.
+    """
+    return causal_tools.power_test(p1=p1, p2=p2, n=n, power=power, sig_level=sig_level)
+
+
 # =================================================================
 # Resources — read-only context the client can pull into its prompt
 # =================================================================

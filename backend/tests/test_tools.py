@@ -68,3 +68,72 @@ def test_causal_impact_matches_ground_truth(db_ready: bool) -> None:
     # Ground truth: ~-40% from the simulator. Allow generous band.
     assert -0.70 <= rel <= -0.10, f"rel_effect {rel} outside expected band"
     assert result["is_significant"], result
+
+
+@pytest.mark.causal
+def test_evalue_for_known_effect() -> None:
+    """E-value for a -38% effect should land in the 'robust' band (~2-3)."""
+    from biq.tools import causal as causal_tools
+
+    h = causal_tools.health()
+    if h.get("status") != "ok":
+        pytest.skip(f"R service not reachable: {h}")
+
+    out = causal_tools.evalue(rel_effect=-0.384, rel_effect_lower=-0.418)
+    assert "error" not in out, out
+    assert 2.0 <= out["e_value"] <= 3.5, out
+    # CI-bound E-value should be at least as conservative as the point estimate
+    # when the CI doesn't cross the null.
+    assert out["e_value_ci_bound"] >= out["e_value"], out
+    assert "robust" in out["interpretation"]
+
+
+@pytest.mark.causal
+def test_evalue_handles_ci_crossing_null() -> None:
+    from biq.tools import causal as causal_tools
+
+    h = causal_tools.health()
+    if h.get("status") != "ok":
+        pytest.skip(f"R service not reachable: {h}")
+
+    out = causal_tools.evalue(rel_effect=-0.10, rel_effect_lower=0.05)
+    assert out["e_value_ci_bound"] == 1.0, out
+
+
+@pytest.mark.causal
+def test_power_solves_for_sample_size() -> None:
+    """Detect a 4% → 2.5% drop at 80% power → needs roughly 2k per group."""
+    from biq.tools import causal as causal_tools
+
+    h = causal_tools.health()
+    if h.get("status") != "ok":
+        pytest.skip(f"R service not reachable: {h}")
+
+    out = causal_tools.power_test(p1=0.04, p2=0.025, power=0.80)
+    assert "error" not in out, out
+    # power.prop.test returns ~2192 here; allow band for numerical wobble.
+    assert 1800 <= out["n"] <= 2600, out
+    assert abs(out["power"] - 0.80) < 1e-3
+
+
+@pytest.mark.causal
+def test_power_solves_for_power() -> None:
+    from biq.tools import causal as causal_tools
+
+    h = causal_tools.health()
+    if h.get("status") != "ok":
+        pytest.skip(f"R service not reachable: {h}")
+
+    # Tiny sample → power should be far below 0.8.
+    out = causal_tools.power_test(p1=0.04, p2=0.025, n=100)
+    assert "error" not in out, out
+    assert out["power"] < 0.5, out
+
+
+def test_power_validates_three_required() -> None:
+    """Passing fewer than 3 of {n,p1,p2,power} should error before hitting R."""
+    from biq.tools import causal as causal_tools
+
+    out = causal_tools.power_test(p1=0.04, p2=0.025)  # only 2 args
+    assert "error" in out
+    assert "exactly three" in out["error"]
