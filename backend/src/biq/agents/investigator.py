@@ -26,6 +26,7 @@ Costs (Sonnet 4.6 @ Jan-2026 list prices, after the standard cache discount):
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from typing import Any
 
 from anthropic import Anthropic
@@ -38,6 +39,7 @@ from biq.audit import (
     run_context,
 )
 from biq.config import settings
+from biq.observability import init_langfuse
 from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
 from biq.tools import kg as kg_tools
@@ -344,22 +346,84 @@ def investigate(
     client = Anthropic(api_key=settings.anthropic_api_key)
     tools = _cached_tools()
     system = _cached_system()
+    lf = init_langfuse()
 
     with run_context(trigger="cli", prompt=question) as ctx:
-        messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
-        recommendation_ids: list[str] = []
-        total_in = total_out = total_cache_read = total_cache_write = 0
-        plan_text: str | None = None
-        last_response = None
+        # Parent agent-trace in Langfuse — per-turn generation spans nest
+        # under it. nullcontext() makes this a no-op when LF env vars
+        # aren't set, so the wrapping costs nothing in dev/CI.
+        agent_cm = (
+            lf.start_as_current_observation(
+                name="investigator",
+                as_type="agent",
+                input={"question": question, "model": model},
+                metadata={"audit_run_id": ctx.run_id},
+            )
+            if lf is not None
+            else nullcontext()
+        )
 
-        for iteration in range(max_iterations):
-            step_id = log_step(
-                ctx,
-                agent_name="investigator",
-                action=f"llm_call_{iteration + 1}",
-                input={"messages_so_far": len(messages)},
+        with agent_cm:
+            return _run_loop(
+                client=client,
+                ctx=ctx,
+                question=question,
+                model=model,
+                tools=tools,
+                system=system,
+                max_iterations=max_iterations,
+                max_input_tokens=max_input_tokens,
+                max_output_tokens=max_output_tokens,
+                thinking_budget=thinking_budget,
+                lf=lf,
             )
 
+
+def _run_loop(
+    *,
+    client: Anthropic,
+    ctx: Any,
+    question: str,
+    model: str,
+    tools: list[dict[str, Any]],
+    system: list[dict[str, Any]],
+    max_iterations: int,
+    max_input_tokens: int,
+    max_output_tokens: int,
+    thinking_budget: int,
+    lf: Any,
+) -> dict[str, Any]:
+    """Inner loop. Extracted so the Langfuse `with agent_cm` block stays flat."""
+    messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
+    recommendation_ids: list[str] = []
+    total_in = total_out = total_cache_read = total_cache_write = 0
+    plan_text: str | None = None
+    last_response = None
+
+    for iteration in range(max_iterations):
+        step_id = log_step(
+            ctx,
+            agent_name="investigator",
+            action=f"llm_call_{iteration + 1}",
+            input={"messages_so_far": len(messages)},
+        )
+
+        gen_cm = (
+            lf.start_as_current_observation(
+                name=f"turn_{iteration + 1}",
+                as_type="generation",
+                model=model,
+                input={"messages_so_far": len(messages)},
+                model_parameters={
+                    "max_tokens": MAX_TOKENS,
+                    "thinking_budget": thinking_budget,
+                },
+            )
+            if lf is not None
+            else nullcontext()
+        )
+
+        with gen_cm as gen_span:
             response = client.messages.create(
                 model=model,
                 max_tokens=MAX_TOKENS,
@@ -368,164 +432,174 @@ def investigate(
                 messages=messages,
                 thinking={"type": "enabled", "budget_tokens": thinking_budget},
             )
-            last_response = response
+            if gen_span is not None:
+                gen_span.update(
+                    usage_details={
+                        "input": response.usage.input_tokens,
+                        "output": response.usage.output_tokens,
+                        "cache_read_input_tokens": getattr(
+                            response.usage, "cache_read_input_tokens", 0
+                        )
+                        or 0,
+                        "cache_creation_input_tokens": getattr(
+                            response.usage, "cache_creation_input_tokens", 0
+                        )
+                        or 0,
+                    },
+                    output={"stop_reason": response.stop_reason},
+                )
 
-            usage = response.usage
-            total_in += usage.input_tokens
-            total_out += usage.output_tokens
-            total_cache_read += getattr(usage, "cache_read_input_tokens", 0) or 0
-            total_cache_write += getattr(usage, "cache_creation_input_tokens", 0) or 0
+        last_response = response
+        usage = response.usage
+        total_in += usage.input_tokens
+        total_out += usage.output_tokens
+        total_cache_read += getattr(usage, "cache_read_input_tokens", 0) or 0
+        total_cache_write += getattr(usage, "cache_creation_input_tokens", 0) or 0
 
-            finish_step(
-                step_id,
-                output={
-                    "stop_reason": response.stop_reason,
-                    "input_tokens": usage.input_tokens,
-                    "output_tokens": usage.output_tokens,
-                    "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
-                },
+        finish_step(
+            step_id,
+            output={
+                "stop_reason": response.stop_reason,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
+                "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
+            },
+        )
+
+        # Plan extraction on the first turn — system prompt instructs the
+        # model to draft 3-5 bullets in its thinking before any tool call.
+        if iteration == 0:
+            plan_text = (
+                "\n".join(
+                    getattr(b, "thinking", "") for b in response.content if b.type == "thinking"
+                ).strip()
+                or None
+            )
+            if plan_text:
+                plan_step = log_step(
+                    ctx,
+                    agent_name="investigator",
+                    action="plan",
+                    input={"question": question},
+                )
+                finish_step(plan_step, output={"plan": plan_text[:4000]})
+
+        assistant_content = [block.model_dump() for block in response.content]
+        messages.append({"role": "assistant", "content": assistant_content})
+
+        if response.stop_reason == "end_turn":
+            final_text = "\n".join(block.text for block in response.content if block.type == "text")
+            return _result(
+                ctx.run_id,
+                final_answer=final_text,
+                recommendation_ids=recommendation_ids,
+                iterations=iteration + 1,
+                plan=plan_text,
+                tokens=(total_in, total_out, total_cache_read, total_cache_write),
             )
 
-            # Capture the plan from the first turn's thinking content — this
-            # is what the system prompt instructs the model to emit before
-            # any tool call. Logged as its own audit step so reviewers can
-            # see the reasoning that drove the investigation.
-            if iteration == 0:
-                plan_text = (
-                    "\n".join(
-                        getattr(b, "thinking", "") for b in response.content if b.type == "thinking"
-                    ).strip()
-                    or None
+        if response.stop_reason == "tool_use":
+            tool_results: list[dict[str, Any]] = []
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+
+                tool_input = dict(block.input)
+                tool_step_id = log_step(
+                    ctx,
+                    agent_name="investigator",
+                    action=f"tool::{block.name}",
+                    input={"tool": block.name, "input": tool_input},
                 )
-                if plan_text:
-                    plan_step = log_step(
-                        ctx,
-                        agent_name="investigator",
-                        action="plan",
-                        input={"question": question},
-                    )
-                    finish_step(plan_step, output={"plan": plan_text[:4000]})
 
-            assistant_content = [block.model_dump() for block in response.content]
-            messages.append({"role": "assistant", "content": assistant_content})
+                error: str | None = None
+                try:
+                    result = _dispatch(block.name, tool_input, ctx.run_id)
+                except Exception as e:
+                    result = {"error": str(e)}
+                    error = str(e)
 
-            if response.stop_reason == "end_turn":
-                final_text = "\n".join(
-                    block.text for block in response.content if block.type == "text"
+                if (
+                    block.name == "record_finding"
+                    and isinstance(result, dict)
+                    and "recommendation_id" in result
+                ):
+                    recommendation_ids.append(result["recommendation_id"])
+
+                log_tool_call(
+                    tool_step_id,
+                    block.name,
+                    params=tool_input,
+                    result_summary=(
+                        {"keys": list(result.keys())} if isinstance(result, dict) else None
+                    ),
+                    rows=int(result.get("row_count", 0)) if isinstance(result, dict) else 0,
+                    error=error,
+                )
+                finish_step(tool_step_id, output={"summary": str(result)[:500]})
+
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result, default=str)[:MAX_TOOL_RESULT_CHARS],
+                    }
+                )
+
+            messages.append({"role": "user", "content": tool_results})
+
+            # Budget check after a full round-trip (LLM call + tools).
+            if total_in + total_cache_read >= max_input_tokens:
+                budget_step = log_step(
+                    ctx,
+                    agent_name="investigator",
+                    action="budget_exceeded",
+                    input={"axis": "input", "limit": max_input_tokens},
+                )
+                finish_step(
+                    budget_step,
+                    output={"consumed": total_in + total_cache_read},
                 )
                 return _result(
                     ctx.run_id,
-                    final_answer=final_text,
+                    error=f"input token budget exceeded ({max_input_tokens})",
+                    recommendation_ids=recommendation_ids,
+                    iterations=iteration + 1,
+                    plan=plan_text,
+                    tokens=(total_in, total_out, total_cache_read, total_cache_write),
+                )
+            if total_out >= max_output_tokens:
+                budget_step = log_step(
+                    ctx,
+                    agent_name="investigator",
+                    action="budget_exceeded",
+                    input={"axis": "output", "limit": max_output_tokens},
+                )
+                finish_step(budget_step, output={"consumed": total_out})
+                return _result(
+                    ctx.run_id,
+                    error=f"output token budget exceeded ({max_output_tokens})",
                     recommendation_ids=recommendation_ids,
                     iterations=iteration + 1,
                     plan=plan_text,
                     tokens=(total_in, total_out, total_cache_read, total_cache_write),
                 )
 
-            if response.stop_reason == "tool_use":
-                tool_results: list[dict[str, Any]] = []
-                for block in response.content:
-                    if block.type != "tool_use":
-                        continue
+            continue
 
-                    tool_input = dict(block.input)
-                    tool_step_id = log_step(
-                        ctx,
-                        agent_name="investigator",
-                        action=f"tool::{block.name}",
-                        input={"tool": block.name, "input": tool_input},
-                    )
+        # Other stop reason — bail out cleanly.
+        break
 
-                    error: str | None = None
-                    try:
-                        result = _dispatch(block.name, tool_input, ctx.run_id)
-                    except Exception as e:
-                        result = {"error": str(e)}
-                        error = str(e)
-
-                    if (
-                        block.name == "record_finding"
-                        and isinstance(result, dict)
-                        and "recommendation_id" in result
-                    ):
-                        recommendation_ids.append(result["recommendation_id"])
-
-                    log_tool_call(
-                        tool_step_id,
-                        block.name,
-                        params=tool_input,
-                        result_summary=(
-                            {"keys": list(result.keys())} if isinstance(result, dict) else None
-                        ),
-                        rows=int(result.get("row_count", 0)) if isinstance(result, dict) else 0,
-                        error=error,
-                    )
-                    finish_step(tool_step_id, output={"summary": str(result)[:500]})
-
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": json.dumps(result, default=str)[:MAX_TOOL_RESULT_CHARS],
-                        }
-                    )
-
-                messages.append({"role": "user", "content": tool_results})
-
-                # Budget check after a full round-trip (LLM call + tools).
-                # Cache reads are billed at 10% so we weight them lightly,
-                # but the gross "consumed" input count is what we cap.
-                if total_in + total_cache_read >= max_input_tokens:
-                    budget_step = log_step(
-                        ctx,
-                        agent_name="investigator",
-                        action="budget_exceeded",
-                        input={"axis": "input", "limit": max_input_tokens},
-                    )
-                    finish_step(
-                        budget_step,
-                        output={"consumed": total_in + total_cache_read},
-                    )
-                    return _result(
-                        ctx.run_id,
-                        error=f"input token budget exceeded ({max_input_tokens})",
-                        recommendation_ids=recommendation_ids,
-                        iterations=iteration + 1,
-                        plan=plan_text,
-                        tokens=(total_in, total_out, total_cache_read, total_cache_write),
-                    )
-                if total_out >= max_output_tokens:
-                    budget_step = log_step(
-                        ctx,
-                        agent_name="investigator",
-                        action="budget_exceeded",
-                        input={"axis": "output", "limit": max_output_tokens},
-                    )
-                    finish_step(budget_step, output={"consumed": total_out})
-                    return _result(
-                        ctx.run_id,
-                        error=f"output token budget exceeded ({max_output_tokens})",
-                        recommendation_ids=recommendation_ids,
-                        iterations=iteration + 1,
-                        plan=plan_text,
-                        tokens=(total_in, total_out, total_cache_read, total_cache_write),
-                    )
-
-                continue
-
-            # Other stop reason → bail
-            break
-
-        return _result(
-            ctx.run_id,
-            error=f"loop ended without end_turn (iterations={max_iterations})",
-            stop_reason=last_response.stop_reason if last_response else None,
-            recommendation_ids=recommendation_ids,
-            iterations=max_iterations,
-            plan=plan_text,
-            tokens=(total_in, total_out, total_cache_read, total_cache_write),
-        )
+    return _result(
+        ctx.run_id,
+        error=f"loop ended without end_turn (iterations={max_iterations})",
+        stop_reason=last_response.stop_reason if last_response else None,
+        recommendation_ids=recommendation_ids,
+        iterations=max_iterations,
+        plan=plan_text,
+        tokens=(total_in, total_out, total_cache_read, total_cache_write),
+    )
 
 
 def _result(

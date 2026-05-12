@@ -20,6 +20,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.0",
     "slowapi>=0.1.9",
     "python-json-logger>=2.0",
+    "langfuse>=4.6.1",
 ]
 
 [dependency-groups]
@@ -33,9 +34,11 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -q"
+# Skip the eval suite by default — it costs real money. Opt in via `-m eval`.
+addopts = "-ra -q -m 'not eval'"
 markers = [
     "causal: integration test requiring the R service on port 8765",
+    "eval: LLM-as-judge quality eval. Requires ANTHROPIC_API_KEY; calls the real API.",
 ]
 
 [tool.coverage.run]
