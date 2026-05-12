@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Card, ErrorMessage, SectionTitle } from "@/components/ui";
+import { ModelPicker } from "@/components/model-picker";
+import {
+  DEFAULT_TIER,
+  MODELS,
+  type ModelTier,
+} from "@/lib/model-choice";
 
 const EXAMPLES = [
   "Was ist mit der Mobile Conversion Rate Anfang Mai 2018 passiert?",
@@ -17,7 +23,7 @@ export default function InvestigatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const [model, setModel] = useState("");
+  const [tier, setTier] = useState<ModelTier>(DEFAULT_TIER);
   const [maxIterations, setMaxIterations] = useState(10);
   const [advanced, setAdvanced] = useState(false);
 
@@ -33,7 +39,7 @@ export default function InvestigatePage() {
     try {
       const res = await api.startLlmInvestigation({
         question: trimmed,
-        model: model.trim() || undefined,
+        model: MODELS[tier].id,
         max_iterations: maxIterations,
       });
       router.push(`/runs/${res.run_id}`);
@@ -59,10 +65,12 @@ export default function InvestigatePage() {
       </div>
 
       <Card className="p-6">
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-5">
+          <ModelPicker value={tier} onChange={setTier} />
+
           <label className="block">
             <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-              Frage
+              Ihre Frage
             </span>
             <textarea
               autoFocus
@@ -81,7 +89,9 @@ export default function InvestigatePage() {
               onClick={() => setAdvanced((v) => !v)}
               className="text-xs text-[var(--color-muted)] hover:text-[var(--color-fg)]"
             >
-              {advanced ? "Erweiterte Optionen ausblenden" : "Erweiterte Optionen anzeigen"}
+              {advanced
+                ? "Erweiterte Optionen ausblenden"
+                : "Erweiterte Optionen anzeigen"}
             </button>
             <button
               type="submit"
@@ -93,20 +103,8 @@ export default function InvestigatePage() {
           </div>
 
           {advanced ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-[var(--color-border)]">
-              <label className="block">
-                <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
-                  Modell überschreiben
-                </span>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="claude-sonnet-4-6 (Standard)"
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm mono"
-                />
-              </label>
-              <label className="block">
+            <div className="pt-3 border-t border-[var(--color-border)]">
+              <label className="block max-w-xs">
                 <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
                   Max. Werkzeug-Iterationen
                 </span>
@@ -120,6 +118,10 @@ export default function InvestigatePage() {
                   }
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm mono"
                 />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  Begrenzt, wie viele Werkzeuge der Agent maximal aufrufen
+                  darf. Höhere Werte = gründlicher, aber teurer.
+                </p>
               </label>
             </div>
           ) : null}
