@@ -66,8 +66,6 @@ export default function InvestigatePage() {
 
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-5">
-          <ModelPicker value={tier} onChange={setTier} />
-
           <label className="block">
             <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
               Ihre Frage
@@ -103,7 +101,9 @@ export default function InvestigatePage() {
           </div>
 
           {advanced ? (
-            <div className="pt-3 border-t border-[var(--color-border)]">
+            <div className="pt-4 border-t border-[var(--color-border)] space-y-5">
+              <ModelPicker value={tier} onChange={setTier} />
+
               <label className="block max-w-xs">
                 <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
                   Max. Werkzeug-Iterationen
