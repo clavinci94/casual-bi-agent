@@ -16,6 +16,10 @@ dependencies = [
     "mcp[cli]>=1.2",
     "langgraph>=0.2",
     "streamlit>=1.40",
+    "alembic>=1.13",
+    "sentry-sdk[fastapi]>=2.0",
+    "slowapi>=0.1.9",
+    "python-json-logger>=2.0",
 ]
 
 [dependency-groups]

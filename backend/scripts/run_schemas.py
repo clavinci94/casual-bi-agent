@@ -1,29 +1,43 @@
-"""Apply all SQL schema files to the configured database.
+"""Apply all DB schemas via Alembic (production path) or by directly
+executing the SQL files (bootstrap for empty databases).
+
+The Makefile target `db-schemas` calls this. Equivalent to running:
+    cd backend && uv run alembic upgrade head
 
 Usage:
     uv run python scripts/run_schemas.py
+    uv run python scripts/run_schemas.py --stamp      # mark current state
+                                                       # as latest without
+                                                       # running migrations
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
-from sqlalchemy import text
-
-from biq.db import engine
-
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "db" / "schemas"
+from alembic import command
+from alembic.config import Config
 
 
 def main() -> None:
-    files = sorted(SCHEMA_DIR.glob("*.sql"))
-    if not files:
-        raise SystemExit(f"No SQL files found in {SCHEMA_DIR}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--stamp",
+        action="store_true",
+        help="Stamp the DB as 'head' without running migrations.",
+    )
+    args = parser.parse_args()
 
-    with engine.begin() as conn:
-        for f in files:
-            print(f"Applying {f.name} ...")
-            conn.execute(text(f.read_text()))
+    ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+    cfg = Config(str(ini))
+
+    if args.stamp:
+        print("Stamping DB at head (no schema changes applied)...")
+        command.stamp(cfg, "head")
+    else:
+        print("Running alembic upgrade head...")
+        command.upgrade(cfg, "head")
     print("Done.")
 
 
