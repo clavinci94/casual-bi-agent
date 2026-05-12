@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
 
+    # External-intelligence providers. Each is independently optional —
+    # tools degrade gracefully when a key is missing (return an empty
+    # result with an explanation, rather than crashing the agent loop).
+    tavily_api_key: str | None = None
+    newsapi_key: str | None = None
+    alpha_vantage_key: str | None = None
+
     # When set, the HTTP API requires X-API-Key: <value> on /api/*.
     # Unset = open (dev mode).
     biq_api_key: str | None = None

@@ -44,6 +44,12 @@ from biq.tools import causal as causal_tools
 from biq.tools import context as ctx_tools
 from biq.tools import kg as kg_tools
 from biq.tools import kpi as kpi_tools
+from biq.tools.external import (
+    market_snapshot,
+    news_search,
+    trends_query,
+    web_search,
+)
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
 MAX_TOOL_RESULT_CHARS = 6000
@@ -92,6 +98,14 @@ RULES
   reviewer sees the sensitivity, not just the point estimate.
 - Cite the data in your reasoning: period, magnitude, segment, sample size,
   p-value, and E-value when available.
+- When an anomaly might have an EXTERNAL cause, reach for the
+  external tools BEFORE drawing internal conclusions:
+    • news_search for press / industry events in the period
+    • trends_query for shifting consumer interest
+    • market_snapshot when an FX or commodity move could explain a margin shift
+    • web_search as a general fallback for anything else
+  Mention any external signal you used in record_finding so the
+  reviewer sees the broader context, not just the internal numbers.
 - Call record_finding once per distinct, evidence-backed conclusion.
   Set risk_level=high only when both magnitude and sample size warrant it.
 - Be concise. Managers read the title and first sentence."""
@@ -254,6 +268,111 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "web_search",
+        "description": (
+            "Search the public web for current facts via Tavily. Use when "
+            "an anomaly might trace back to external events the internal "
+            "data can't see (regulator action, industry outage, viral "
+            "trend). Returns up to 10 ranked results with title, url and "
+            "content snippet."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language query.",
+                },
+                "max_results": {"type": "integer", "default": 5, "minimum": 1, "maximum": 10},
+                "days": {
+                    "type": "integer",
+                    "description": "Restrict to last N days (time-sensitive queries).",
+                },
+                "topic": {
+                    "type": "string",
+                    "enum": ["general", "news"],
+                    "default": "general",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "news_search",
+        "description": (
+            "Recent news headlines (German business / general). Prefer "
+            "this over web_search for press releases, market news, and "
+            "competitor announcements within the last ~30 days. Returns "
+            "title, source, published_at, url, summary."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Free-text filter, e.g. 'Shopify mobile checkout'. Empty = top headlines.",
+                },
+                "max_results": {"type": "integer", "default": 10, "minimum": 1, "maximum": 30},
+                "language": {"type": "string", "default": "de", "enum": ["de", "en"]},
+            },
+        },
+    },
+    {
+        "name": "trends_query",
+        "description": (
+            "Google-Trends search-interest timeline for one or more "
+            "keywords. Use to check whether a KPI move tracks a broader "
+            "consumer-interest shift (e.g. our 'sneakers' sales fell — "
+            "but did searches for sneakers fall too?). Returns weekly "
+            "interest values 0..100 and related topics."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "1-5 search terms.",
+                },
+                "geo": {
+                    "type": "string",
+                    "default": "CH",
+                    "description": "ISO country code, '' for worldwide.",
+                },
+                "timeframe": {
+                    "type": "string",
+                    "default": "today 3-m",
+                    "description": "pytrends spec: 'now 7-d', 'today 3-m', 'today 12-m', or a 'YYYY-MM-DD YYYY-MM-DD' range.",
+                },
+            },
+            "required": ["keywords"],
+        },
+    },
+    {
+        "name": "market_snapshot",
+        "description": (
+            "Equity / index / currency / commodity recent prices via "
+            "Yahoo Finance. Use when a margin shift could be explained by "
+            "FX (EURCHF=X, USDCHF=X), or a sector move (^SSMI, ^GDAXI), "
+            "or a commodity (GC=F for gold, CL=F for oil)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "yfinance tickers. Default: SMI, DAX, S&P, EURCHF, USDCHF, gold, BTC.",
+                },
+                "period": {
+                    "type": "string",
+                    "default": "1mo",
+                    "description": "'5d' | '1mo' | '3mo' | '1y'.",
+                },
+            },
+        },
+    },
+    {
         "name": "record_finding",
         "description": (
             "Persist a finding as a recommendation in the audit log. "
@@ -291,6 +410,14 @@ def _dispatch(name: str, params: dict[str, Any], run_id: str) -> dict[str, Any]:
         return causal_tools.power_test(**params)
     if name == "kg_lookup_past_decisions":
         return kg_tools.lookup_past_decisions(**params)
+    if name == "web_search":
+        return web_search(**params)
+    if name == "news_search":
+        return news_search(**params)
+    if name == "trends_query":
+        return trends_query(**params)
+    if name == "market_snapshot":
+        return market_snapshot(**params)
     if name == "record_finding":
         rec_id = log_recommendation(
             run_id=run_id,

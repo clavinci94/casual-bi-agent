@@ -215,12 +215,8 @@ def narrate(insight: Insight) -> tuple[str, str]:
 
     title = f"{kpi_label} auf {segment_label} um {rel_str} {direction}"
 
-    period_now = (
-        f"{_de_date(insight.period_now[0])} bis {_de_date(insight.period_now[1])}"
-    )
-    period_prior = (
-        f"{_de_date(insight.period_prior[0])} bis {_de_date(insight.period_prior[1])}"
-    )
+    period_now = f"{_de_date(insight.period_now[0])} bis {_de_date(insight.period_now[1])}"
+    period_prior = f"{_de_date(insight.period_prior[0])} bis {_de_date(insight.period_prior[1])}"
 
     body = (
         f"Worum geht es: Die {kpi_label} auf {segment_label} ist "

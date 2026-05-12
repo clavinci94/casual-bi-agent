@@ -21,6 +21,10 @@ dependencies = [
     "slowapi>=0.1.9",
     "python-json-logger>=2.0",
     "langfuse>=4.6.1",
+    "tavily-python>=0.7.24",
+    "pytrends>=4.9.2",
+    "yfinance>=1.3.0",
+    "feedparser>=6.0.12",
 ]
 
 [dependency-groups]
