@@ -197,6 +197,7 @@ def log_recommendation(
     *,
     component: str | None = None,
     period: tuple[str, str] | None = None,
+    period_prior: tuple[str, str] | None = None,
     kg_extra: dict[str, Any] | None = None,
 ) -> str:
     """Persist a recommendation AND mirror it as a kg.Insight node.
@@ -234,6 +235,7 @@ def log_recommendation(
             component=component,
             severity=risk_level,
             period=period,
+            period_prior=period_prior,
             run_id=run_id,
             extra=kg_extra,
         )

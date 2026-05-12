@@ -202,4 +202,24 @@ export const api = {
     for (const t of excludeTriggers) qs.append("exclude_triggers", t);
     return request<Insight[]>(`/api/kg/insights?${qs}`);
   },
+  measureDecisionOutcome: (
+    decisionId: string,
+    payload: { post_period_days?: number; notes?: string } = {},
+  ) =>
+    request<{
+      status: string;
+      outcome_id?: string;
+      observed_effect?: number | null;
+      expected_effect?: number | null;
+      observed_rate?: number | null;
+      baseline_rate?: number | null;
+      period_start?: string;
+      period_end?: string;
+      anchored_to_data?: boolean;
+      error?: string;
+      reason?: string;
+    }>(`/api/kg/decisions/${decisionId}/measure-outcome`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };

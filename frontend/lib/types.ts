@@ -66,7 +66,9 @@ export type KpiQueryResult = {
 /**
  * Mirrors biq.tools.kg.list_recent_insights() — kg.nodes properties are
  * stored in a jsonb column, so `title`, `component`, `severity`, etc. live
- * inside `properties`, not at the top level.
+ * inside `properties`, not at the top level. The `decision` and `outcome`
+ * fields are optional joined sub-objects so the UI can show
+ * "Wirkung wird am X gemessen" or the actual measured result.
  */
 export type Insight = {
   insight_id: string;
@@ -80,9 +82,28 @@ export type Insight = {
     run_id?: string;
     period_start?: string;
     period_end?: string;
+    period_prior_start?: string;
+    period_prior_end?: string;
     relative_change?: number;
     [k: string]: unknown;
   };
+  decision?: {
+    decision_id: string;
+    decision: "approve" | "reject" | "modify" | string;
+    approver: string | null;
+    decided_at: string | null;
+    outcome_due_at: string | null;
+  } | null;
+  outcome?: {
+    outcome_id: string;
+    metric: string | null;
+    expected_effect: number | null;
+    observed_effect: number | null;
+    period_start: string | null;
+    period_end: string | null;
+    measured_at: string | null;
+    notes: string | null;
+  } | null;
 };
 
 export type HealthStatus = {

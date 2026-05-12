@@ -78,3 +78,43 @@ def record_outcome(payload: OutcomeRequest) -> OutcomeResponse:
     return OutcomeResponse(
         outcome_id=outcome_id, decision_id=payload.decision_id, status="recorded"
     )
+
+
+class MeasureOutcomeRequest(BaseModel):
+    post_period_days: Annotated[int, Field(ge=3, le=180)] = 30
+    notes: str | None = None
+
+
+@router.post("/decisions/{decision_id}/measure-outcome")
+def measure_decision_outcome(
+    decision_id: str,
+    payload: MeasureOutcomeRequest | None = None,
+) -> dict[str, Any]:
+    """Compute and persist the actual KPI effect after a decision.
+
+    Looks up the upstream Insight, defines a post-decision measurement
+    window, queries the same KPI, and writes an Outcome node.
+
+    For the 2018 demo dataset the post-window is automatically anchored
+    to the tail of the available data, so a freshly-made approval can
+    be 'measured' immediately rather than waiting 30 real-time days.
+    """
+    p = payload or MeasureOutcomeRequest()
+    result = kg_tools.measure_outcome_for_decision(
+        decision_id,
+        post_period_days=p.post_period_days,
+        notes=p.notes,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+@router.get("/decisions/due-for-outcome")
+def decisions_due_for_outcome(
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[dict[str, Any]]:
+    """Approved Decisions whose outcome window has elapsed but where the
+    Outcome hasn't been measured yet. Power for the n8n cron job and
+    diagnostics."""
+    return kg_tools.find_decisions_due_for_outcome(limit=limit)

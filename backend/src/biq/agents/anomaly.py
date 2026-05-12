@@ -328,6 +328,7 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
                     risk_level=ins.severity,
                     component=component,
                     period=(period_start, period_end),
+                    period_prior=(str(ins.period_prior[0]), str(ins.period_prior[1])),
                     kg_extra={"kpi": ins.kpi, "relative_change": ins.relative_change},
                 )
             )
