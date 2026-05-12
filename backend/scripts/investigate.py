@@ -12,7 +12,13 @@ from __future__ import annotations
 import argparse
 import json
 
-from biq.agents.investigator import DEFAULT_MODEL, investigate
+from biq.agents.investigator import (
+    DEFAULT_MAX_INPUT_TOKENS,
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_MODEL,
+    DEFAULT_THINKING_BUDGET,
+    investigate,
+)
 
 
 def main() -> None:
@@ -20,12 +26,33 @@ def main() -> None:
     parser.add_argument("question", help="Business question to investigate")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--max-iterations", type=int, default=10)
+    parser.add_argument(
+        "--max-input-tokens",
+        type=int,
+        default=DEFAULT_MAX_INPUT_TOKENS,
+        help="Halt after cumulative input tokens exceed this cap.",
+    )
+    parser.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=DEFAULT_MAX_OUTPUT_TOKENS,
+        help="Halt after cumulative output tokens exceed this cap.",
+    )
+    parser.add_argument(
+        "--thinking-budget",
+        type=int,
+        default=DEFAULT_THINKING_BUDGET,
+        help="Per-turn extended-thinking budget (tokens). Must be >=1024.",
+    )
     args = parser.parse_args()
 
     result = investigate(
         args.question,
         model=args.model,
         max_iterations=args.max_iterations,
+        max_input_tokens=args.max_input_tokens,
+        max_output_tokens=args.max_output_tokens,
+        thinking_budget=args.thinking_budget,
     )
 
     print(

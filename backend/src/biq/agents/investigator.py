@@ -4,15 +4,23 @@ Uses Claude tool-use to plan and execute a multi-step investigation.
 Shares the audit pattern with the heuristic detector in `agents/anomaly.py`
 but lets the LLM decide which tool to call when.
 
+Process — plan-then-execute:
+- Extended thinking is enabled on every turn (default 4000 tokens). The
+  system prompt mandates a short plan before any tool call; that plan is
+  surfaced via the thinking blocks and persisted to the audit log.
+- A token budget halts the loop cleanly (with an audit entry) before it
+  can run away — defaults are tuned for Sonnet 4.6.
+
 Prompt caching:
 - System prompt is cached (ephemeral)
 - Last tool definition is cached, so the whole tools array is cached up to it
 - These two breakpoints amortise across iterations within a run AND across
   separate runs within the 5-minute cache window.
 
-Costs:
-- Sonnet 4.6 is the default. Override with --model claude-haiku-4-5-20251001
-  for cheaper local testing.
+Costs (Sonnet 4.6 @ Jan-2026 list prices, after the standard cache discount):
+- ~CHF 0.10-0.20 per typical investigation
+- Defaults below cap a single run at roughly CHF 1 worst-case
+- Override with --model claude-haiku-4-5-20251001 for cheaper local testing.
 """
 
 from __future__ import annotations
@@ -38,11 +46,31 @@ from biq.tools import kpi as kpi_tools
 DEFAULT_MODEL = "claude-sonnet-4-6"
 MAX_TOOL_RESULT_CHARS = 6000
 
+# Extended thinking: at least 1024, less than MAX_TOKENS. 4000 is enough for
+# a 3-5 bullet plan + reflection between tool calls.
+DEFAULT_THINKING_BUDGET = 4000
+MAX_TOKENS = 8192  # thinking + visible output combined
+
+# Hard caps on a single investigation. Cumulative across all iterations.
+# Sized so that the worst case (max_iterations x full tool results) still
+# fits without surprise blow-up. Override via investigate(...) kwargs.
+DEFAULT_MAX_INPUT_TOKENS = 200_000
+DEFAULT_MAX_OUTPUT_TOKENS = 20_000
+
 SYSTEM_PROMPT = """You are an autonomous Business Intelligence investigator.
 
 GOAL
 When the user gives you a business question or anomaly, investigate it
 using the available tools, then write a clear management-grade finding.
+
+PROCESS — plan, then execute
+Before calling any tool, draft a 3-5 bullet plan in your reasoning:
+  - which KPI / dimension to probe first
+  - what would distinguish a correlation from a causal effect
+  - which device or segment is the likely target for causal_impact_conversion
+  - one fallback if the first hypothesis doesn't hold
+Then execute the plan with tool calls. Revise the plan as evidence arrives
+— don't rigidly stick to a plan that the data contradicts.
 
 RULES
 - Read KPIs only via the kpi_query tool. The kpi.* views are the governed
@@ -240,8 +268,17 @@ def investigate(
     question: str,
     model: str = DEFAULT_MODEL,
     max_iterations: int = 10,
+    max_input_tokens: int = DEFAULT_MAX_INPUT_TOKENS,
+    max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+    thinking_budget: int = DEFAULT_THINKING_BUDGET,
 ) -> dict[str, Any]:
-    """Run the investigator loop. Returns final answer + audit metadata."""
+    """Run the investigator loop. Returns final answer + audit metadata.
+
+    Halts cleanly when any of these caps trip:
+      - max_iterations: tool-use loop budget
+      - max_input_tokens: cumulative input tokens (incl. cache hits)
+      - max_output_tokens: cumulative output tokens (visible + thinking)
+    """
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env to run the LLM investigator.")
 
@@ -253,6 +290,7 @@ def investigate(
         messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
         recommendation_ids: list[str] = []
         total_in = total_out = total_cache_read = total_cache_write = 0
+        plan_text: str | None = None
         last_response = None
 
         for iteration in range(max_iterations):
@@ -265,10 +303,11 @@ def investigate(
 
             response = client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=MAX_TOKENS,
                 system=system,
                 tools=tools,
                 messages=messages,
+                thinking={"type": "enabled", "budget_tokens": thinking_budget},
             )
             last_response = response
 
@@ -289,6 +328,26 @@ def investigate(
                 },
             )
 
+            # Capture the plan from the first turn's thinking content — this
+            # is what the system prompt instructs the model to emit before
+            # any tool call. Logged as its own audit step so reviewers can
+            # see the reasoning that drove the investigation.
+            if iteration == 0:
+                plan_text = (
+                    "\n".join(
+                        getattr(b, "thinking", "") for b in response.content if b.type == "thinking"
+                    ).strip()
+                    or None
+                )
+                if plan_text:
+                    plan_step = log_step(
+                        ctx,
+                        agent_name="investigator",
+                        action="plan",
+                        input={"question": question},
+                    )
+                    finish_step(plan_step, output={"plan": plan_text[:4000]})
+
             assistant_content = [block.model_dump() for block in response.content]
             messages.append({"role": "assistant", "content": assistant_content})
 
@@ -296,18 +355,14 @@ def investigate(
                 final_text = "\n".join(
                     block.text for block in response.content if block.type == "text"
                 )
-                return {
-                    "run_id": ctx.run_id,
-                    "final_answer": final_text,
-                    "recommendation_ids": recommendation_ids,
-                    "iterations": iteration + 1,
-                    "tokens": {
-                        "input": total_in,
-                        "output": total_out,
-                        "cache_read": total_cache_read,
-                        "cache_write": total_cache_write,
-                    },
-                }
+                return _result(
+                    ctx.run_id,
+                    final_answer=final_text,
+                    recommendation_ids=recommendation_ids,
+                    iterations=iteration + 1,
+                    plan=plan_text,
+                    tokens=(total_in, total_out, total_cache_read, total_cache_write),
+                )
 
             if response.stop_reason == "tool_use":
                 tool_results: list[dict[str, Any]] = []
@@ -358,20 +413,91 @@ def investigate(
                     )
 
                 messages.append({"role": "user", "content": tool_results})
+
+                # Budget check after a full round-trip (LLM call + tools).
+                # Cache reads are billed at 10% so we weight them lightly,
+                # but the gross "consumed" input count is what we cap.
+                if total_in + total_cache_read >= max_input_tokens:
+                    budget_step = log_step(
+                        ctx,
+                        agent_name="investigator",
+                        action="budget_exceeded",
+                        input={"axis": "input", "limit": max_input_tokens},
+                    )
+                    finish_step(
+                        budget_step,
+                        output={"consumed": total_in + total_cache_read},
+                    )
+                    return _result(
+                        ctx.run_id,
+                        error=f"input token budget exceeded ({max_input_tokens})",
+                        recommendation_ids=recommendation_ids,
+                        iterations=iteration + 1,
+                        plan=plan_text,
+                        tokens=(total_in, total_out, total_cache_read, total_cache_write),
+                    )
+                if total_out >= max_output_tokens:
+                    budget_step = log_step(
+                        ctx,
+                        agent_name="investigator",
+                        action="budget_exceeded",
+                        input={"axis": "output", "limit": max_output_tokens},
+                    )
+                    finish_step(budget_step, output={"consumed": total_out})
+                    return _result(
+                        ctx.run_id,
+                        error=f"output token budget exceeded ({max_output_tokens})",
+                        recommendation_ids=recommendation_ids,
+                        iterations=iteration + 1,
+                        plan=plan_text,
+                        tokens=(total_in, total_out, total_cache_read, total_cache_write),
+                    )
+
                 continue
 
             # Other stop reason → bail
             break
 
-        return {
-            "run_id": ctx.run_id,
-            "error": f"loop ended without end_turn (iterations={max_iterations})",
-            "stop_reason": last_response.stop_reason if last_response else None,
-            "recommendation_ids": recommendation_ids,
-            "tokens": {
-                "input": total_in,
-                "output": total_out,
-                "cache_read": total_cache_read,
-                "cache_write": total_cache_write,
-            },
-        }
+        return _result(
+            ctx.run_id,
+            error=f"loop ended without end_turn (iterations={max_iterations})",
+            stop_reason=last_response.stop_reason if last_response else None,
+            recommendation_ids=recommendation_ids,
+            iterations=max_iterations,
+            plan=plan_text,
+            tokens=(total_in, total_out, total_cache_read, total_cache_write),
+        )
+
+
+def _result(
+    run_id: str,
+    *,
+    final_answer: str | None = None,
+    error: str | None = None,
+    stop_reason: str | None = None,
+    recommendation_ids: list[str],
+    iterations: int,
+    plan: str | None,
+    tokens: tuple[int, int, int, int],
+) -> dict[str, Any]:
+    """Uniform return envelope for both success and budget-stop paths."""
+    out: dict[str, Any] = {
+        "run_id": run_id,
+        "recommendation_ids": recommendation_ids,
+        "iterations": iterations,
+        "tokens": {
+            "input": tokens[0],
+            "output": tokens[1],
+            "cache_read": tokens[2],
+            "cache_write": tokens[3],
+        },
+    }
+    if plan is not None:
+        out["plan"] = plan
+    if final_answer is not None:
+        out["final_answer"] = final_answer
+    if error is not None:
+        out["error"] = error
+    if stop_reason is not None:
+        out["stop_reason"] = stop_reason
+    return out
