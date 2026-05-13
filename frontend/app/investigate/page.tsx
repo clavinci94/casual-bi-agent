@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Card, ErrorMessage, SectionTitle } from "@/components/ui";
+import { PageHeader } from "@/components/page-header";
 import { ModelPicker } from "@/components/model-picker";
 import {
   DEFAULT_TIER,
@@ -50,19 +51,12 @@ export default function InvestigatePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Neue Untersuchung
-        </h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
-          Stellen Sie eine geschäftliche Frage. Das System plant die
-          Untersuchung, fragt Kennzahlen ab, führt bei Bedarf
-          Kausalanalysen durch und hinterlegt das Ergebnis als
-          freigabefähige Empfehlung. Sie landen anschliessend direkt auf
-          der Detailseite, wo der Fortschritt live mitläuft.
-        </p>
-      </div>
+    <div className="space-y-8 max-w-3xl">
+      <PageHeader
+        label="Untersuchung starten"
+        title="Neue Untersuchung"
+        description="Stellen Sie eine geschäftliche Frage. Das System plant die Untersuchung, fragt Kennzahlen ab, führt bei Bedarf Kausalanalysen durch und hinterlegt das Ergebnis als freigabefähige Empfehlung. Sie landen anschliessend direkt auf der Detailseite, wo der Fortschritt live mitläuft."
+      />
 
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-5">

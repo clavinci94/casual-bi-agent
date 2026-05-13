@@ -2,6 +2,7 @@
 
 import { useKpiList } from "@/lib/hooks";
 import { ErrorMessage, Loading, SectionTitle } from "@/components/ui";
+import { PageHeader } from "@/components/page-header";
 import { KpiTile } from "@/components/kpi-tile";
 import {
   metaFor,
@@ -32,17 +33,11 @@ export default function KpisIndex() {
 
   return (
     <div className="space-y-10">
-      <div className="max-w-3xl">
-        <h1 className="text-2xl font-semibold tracking-tight">Kennzahlen</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
-          Aktuelle Werte aller Geschäftskennzahlen, gruppiert nach
-          zuständigem Team. Pfeil rauf bedeutet besser, Pfeil runter
-          schlechter — die Farbe folgt der Geschäftslogik (sinkende
-          Rückgabequote ist grün, sinkende Conversion-Rate rot).
-          Klicken Sie eine Karte für den vollständigen Verlauf, Aufschlüsselungen
-          und die zugehörigen Findings.
-        </p>
-      </div>
+      <PageHeader
+        label="Geschäftslage"
+        title="Kennzahlen"
+        description="Aktuelle Werte aller Geschäftskennzahlen, gruppiert nach zuständigem Team. Pfeil rauf bedeutet besser, Pfeil runter schlechter — die Farbe folgt der Geschäftslogik (sinkende Rückgabequote ist grün, sinkende Conversion-Rate rot). Klicken Sie eine Karte für den vollständigen Verlauf, Aufschlüsselungen und die zugehörigen Findings."
+      />
 
       {OWNER_ORDER.filter((o) => byOwner.has(o)).map((owner) => (
         <section key={owner}>

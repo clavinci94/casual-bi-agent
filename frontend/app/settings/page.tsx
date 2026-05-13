@@ -12,6 +12,7 @@ import {
   Pill,
   SectionTitle,
 } from "@/components/ui";
+import { PageHeader } from "@/components/page-header";
 
 const STATUS_TONES: Record<
   AnthropicApiKey["status"],
@@ -47,14 +48,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Einstellungen</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-2 max-w-2xl">
-          Hier steuern Sie Kosten-relevante Funktionen und sehen, welche
-          Anthropic-Keys für diese Organisation aktiv sind. Änderungen
-          werden im Audit-Log mit Zeitstempel festgehalten.
-        </p>
-      </div>
+      <PageHeader
+        label="Konfiguration"
+        title="Einstellungen"
+        description="Hier steuern Sie Kosten-relevante Funktionen und sehen, welche Anthropic-Keys für diese Organisation aktiv sind. Änderungen werden im Audit-Log mit Zeitstempel festgehalten."
+      />
 
       <DailyBriefingToggle />
 

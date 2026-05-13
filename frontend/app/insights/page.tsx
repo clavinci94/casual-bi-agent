@@ -14,6 +14,7 @@ import {
 import { useInsights } from "@/lib/hooks";
 import { api } from "@/lib/api";
 import { Card, ErrorMessage, Loading } from "@/components/ui";
+import { PageHeader } from "@/components/page-header";
 import type { Insight } from "@/lib/types";
 import {
   formatRelativeTime,
@@ -72,29 +73,22 @@ export default function InsightsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Lernerfahrungen
-          </h1>
-          <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
-            Hier sammelt das System, was es über Ihr Geschäft gelernt hat —
-            jede wichtige Beobachtung, Ihre Entscheidung dazu, und das
-            gemessene Ergebnis. Mit der Zeit wächst daraus ein durchsuchbares
-            Erfahrungswissen: „Hatten wir das schon mal? Was hat damals
-            geholfen?"
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-[var(--color-muted)] cursor-pointer select-none shrink-0">
-          <input
-            type="checkbox"
-            checked={showTests}
-            onChange={(e) => setShowTests(e.target.checked)}
-            className="accent-[var(--color-accent)]"
-          />
-          Test-Einträge einblenden
-        </label>
-      </div>
+      <PageHeader
+        label="Organisationales Gedächtnis"
+        title="Lernerfahrungen"
+        description={`Hier sammelt das System, was es über Ihr Geschäft gelernt hat — jede wichtige Beobachtung, Ihre Entscheidung dazu, und das gemessene Ergebnis. Mit der Zeit wächst daraus ein durchsuchbares Erfahrungswissen: „Hatten wir das schon mal? Was hat damals geholfen?"`}
+        action={
+          <label className="flex items-center gap-2 text-sm text-[var(--color-muted)] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showTests}
+              onChange={(e) => setShowTests(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Test-Einträge einblenden
+          </label>
+        }
+      />
 
       {error ? (
         <ErrorMessage error={error} />

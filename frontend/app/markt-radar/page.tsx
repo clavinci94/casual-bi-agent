@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, ErrorMessage, Empty } from "@/components/ui";
+import { PageHeader } from "@/components/page-header";
 import { Sparkline } from "@/components/sparkline";
 import { BriefingCard } from "@/components/briefing-card";
 import { ShopifyStatusWidget } from "@/components/shopify-status-widget";
@@ -52,16 +53,11 @@ function fmtSignedPct(p: number | null): string {
 export default function MarktRadarPage() {
   return (
     <div className="space-y-8">
-      <header className="max-w-3xl">
-        <h1 className="text-2xl font-semibold tracking-tight">Markt-Radar</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
-          Was draussen passiert und was es für Ihren Shop heute bedeutet.
-          Der Agent fasst oben das Wichtigste in Klartext zusammen,
-          darunter zeigen wir die Roh-Signale aus Markt, Plattform und
-          Konsumenten-Interesse — und unten können Sie eigene Kennzahlen
-          gegen externe Reihen prüfen.
-        </p>
-      </header>
+      <PageHeader
+        label="Aussenwelt"
+        title="Markt-Radar"
+        description="Was draussen passiert und was es für Ihren Shop heute bedeutet. Der Agent fasst oben das Wichtigste in Klartext zusammen, darunter zeigen wir die Roh-Signale aus Markt, Plattform und Konsumenten-Interesse — und unten können Sie eigene Kennzahlen gegen externe Reihen prüfen."
+      />
 
       {/* 1 — Tagesbriefing (full width, top) */}
       <BriefingCard />
