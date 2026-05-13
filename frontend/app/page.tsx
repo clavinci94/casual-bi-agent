@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useReadiness, useRecommendations, useRuns } from "@/lib/hooks";
-import { Card, ErrorMessage, Loading, MutedLink } from "@/components/ui";
+import { Card, ErrorMessage, Loading, MutedLink, Pill } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/labels";
 
 /**
@@ -141,6 +141,9 @@ export default function Dashboard() {
               </span>
             ) : null}
           </h2>
+          {pending.data && pending.data.length > 0 ? (
+            <MutedLink href="/recommendations">Alle anzeigen →</MutedLink>
+          ) : null}
         </div>
         {pending.error ? (
           <ErrorMessage error={pending.error} />
@@ -187,33 +190,7 @@ export default function Dashboard() {
           <Card>
             <ul className="divide-y divide-[var(--color-border)]">
               {meaningfulRuns.map((r) => (
-                <li
-                  key={r.run_id}
-                  className="px-4 py-3 hover:bg-[var(--color-bg)]"
-                >
-                  <Link
-                    href={`/runs/${r.run_id}`}
-                    className="flex items-center gap-3"
-                  >
-                    <span
-                      className={`size-2 rounded-full shrink-0 ${
-                        r.status === "ok"
-                          ? "bg-[var(--color-success)]"
-                          : r.status === "running"
-                            ? "bg-[var(--color-accent)] animate-pulse"
-                            : r.status === "error"
-                              ? "bg-[var(--color-danger)]"
-                              : "bg-[var(--color-muted)]"
-                      }`}
-                    />
-                    <span className="text-sm font-medium text-[var(--color-fg)] truncate flex-1">
-                      {r.prompt ?? "(ohne Titel)"}
-                    </span>
-                    <span className="text-xs text-[var(--color-muted)] shrink-0">
-                      {formatRelativeTime(r.started_at)}
-                    </span>
-                  </Link>
-                </li>
+                <ActivityRow key={r.run_id} run={r} />
               ))}
             </ul>
           </Card>
@@ -346,6 +323,66 @@ function RecommendationMemo({
       </div>
     </Link>
   );
+}
+
+function ActivityRow({ run }: { run: import("@/lib/types").AgentRun }) {
+  // Wenn eine Empfehlung aus diesem Run entstanden ist, linken wir
+  // direkt darauf — der Manager sieht das Ergebnis statt nur den
+  // Status. Ohne Empfehlung führt der Klick auf die Run-Detail-
+  // Seite (die volle Beweiskette).
+  const top = run.top_recommendation;
+  const href = top ? `/recommendations/${top.rec_id}` : `/runs/${run.run_id}`;
+  const statusDot =
+    run.status === "ok"
+      ? "bg-[var(--color-success)]"
+      : run.status === "running"
+        ? "bg-[var(--color-accent)] animate-pulse"
+        : run.status === "error"
+          ? "bg-[var(--color-danger)]"
+          : "bg-[var(--color-muted)]";
+
+  const riskTone =
+    top?.risk_level === "high"
+      ? "danger"
+      : top?.risk_level === "medium"
+        ? "warning"
+        : top
+          ? "accent"
+          : "neutral";
+
+  return (
+    <li className="px-4 py-3 hover:bg-[var(--color-bg)]">
+      <Link href={href} className="flex items-start gap-3">
+        <span className={`size-2 rounded-full shrink-0 mt-2 ${statusDot}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-fg)]">
+            <span className="truncate">{run.prompt ?? "(ohne Titel)"}</span>
+          </div>
+          {top ? (
+            <div className="mt-1 flex items-baseline gap-2">
+              <Pill tone={riskTone}>{riskLabelShort(top.risk_level)}</Pill>
+              <span className="text-xs text-[var(--color-muted)] truncate">
+                {top.title}
+              </span>
+            </div>
+          ) : run.status === "ok" ? (
+            <div className="mt-1 text-xs text-[var(--color-muted)]">
+              Keine Empfehlung — Lage unauffällig.
+            </div>
+          ) : null}
+        </div>
+        <span className="text-xs text-[var(--color-muted)] shrink-0 mt-1">
+          {formatRelativeTime(run.started_at)}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function riskLabelShort(level: string) {
+  if (level === "high") return "Dringend";
+  if (level === "medium") return "Beachten";
+  return "Hinweis";
 }
 
 function MarketHighlights() {

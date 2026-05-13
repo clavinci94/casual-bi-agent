@@ -19,6 +19,13 @@ export type DecisionResponse = {
   status: string;
 };
 
+export type TopRecommendation = {
+  rec_id: string;
+  title: string;
+  risk_level: "low" | "medium" | "high";
+  status: "pending" | "approved" | "rejected" | string;
+};
+
 export type AgentRun = {
   run_id: string;
   user_id: string | null;
@@ -28,6 +35,7 @@ export type AgentRun = {
   started_at: string;
   finished_at: string | null;
   cost_usd: number | null;
+  top_recommendation: TopRecommendation | null;
 };
 
 export type AgentStep = {

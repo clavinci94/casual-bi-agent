@@ -14,6 +14,17 @@ from biq.db import engine
 router = APIRouter(prefix="/runs", tags=["runs"])
 
 
+class TopRecommendation(BaseModel):
+    """Compact summary of the highest-impact recommendation produced by
+    this run — surfaced on the dashboard activity strip so a manager can
+    see the outcome without drilling into the run detail."""
+
+    rec_id: str
+    title: str
+    risk_level: str
+    status: str
+
+
 class AgentRun(BaseModel):
     run_id: str
     user_id: str | None
@@ -23,6 +34,7 @@ class AgentRun(BaseModel):
     started_at: datetime
     finished_at: datetime | None
     cost_usd: float | None
+    top_recommendation: TopRecommendation | None = None
 
 
 class AgentStep(BaseModel):
@@ -67,15 +79,54 @@ def list_runs(
     if exclude_triggers:
         where = "WHERE trigger <> ALL(:excluded)"
         params["excluded"] = list(exclude_triggers)
+    # LATERAL subquery picks the single most-relevant recommendation per
+    # run: prefer high > medium > low risk, tie-break by created_at.
     sql = text(
-        f"SELECT run_id, user_id, trigger, prompt, status, "
-        f"       started_at, finished_at, cost_usd "
-        f"FROM audit.agent_runs {where} "
-        f"ORDER BY started_at DESC LIMIT :limit"
+        f"SELECT r.run_id, r.user_id, r.trigger, r.prompt, r.status, "
+        f"       r.started_at, r.finished_at, r.cost_usd, "
+        f"       rec.rec_id, rec.title, rec.risk_level, rec.status AS rec_status "
+        f"FROM audit.agent_runs r "
+        f"LEFT JOIN LATERAL ("
+        f"  SELECT rec_id, title, risk_level, status "
+        f"  FROM audit.recommendations "
+        f"  WHERE run_id = r.run_id "
+        f"  ORDER BY CASE risk_level "
+        f"             WHEN 'high' THEN 0 "
+        f"             WHEN 'medium' THEN 1 "
+        f"             WHEN 'low' THEN 2 "
+        f"             ELSE 3 END, "
+        f"           created_at DESC "
+        f"  LIMIT 1 "
+        f") rec ON true "
+        f"{where.replace('WHERE trigger', 'WHERE r.trigger')} "
+        f"ORDER BY r.started_at DESC LIMIT :limit"
     )
     with engine.connect() as conn:
         rows = conn.execute(sql, params).all()
-    return [AgentRun(**dict(r._mapping)) for r in rows]
+    return [_row_to_run(r) for r in rows]
+
+
+def _row_to_run(r: Any) -> AgentRun:
+    m = r._mapping
+    top = None
+    if m["rec_id"] is not None:
+        top = TopRecommendation(
+            rec_id=m["rec_id"],
+            title=m["title"],
+            risk_level=m["risk_level"],
+            status=m["rec_status"],
+        )
+    return AgentRun(
+        run_id=m["run_id"],
+        user_id=m["user_id"],
+        trigger=m["trigger"],
+        prompt=m["prompt"],
+        status=m["status"],
+        started_at=m["started_at"],
+        finished_at=m["finished_at"],
+        cost_usd=m["cost_usd"],
+        top_recommendation=top,
+    )
 
 
 @router.get("/{run_id}", response_model=RunDetail)
@@ -83,9 +134,24 @@ def get_run(run_id: str) -> RunDetail:
     with engine.connect() as conn:
         run_row = conn.execute(
             text(
-                "SELECT run_id, user_id, trigger, prompt, status, "
-                "       started_at, finished_at, cost_usd "
-                "FROM audit.agent_runs WHERE run_id = :id"
+                "SELECT r.run_id, r.user_id, r.trigger, r.prompt, r.status, "
+                "       r.started_at, r.finished_at, r.cost_usd, "
+                "       rec.rec_id, rec.title, rec.risk_level, "
+                "       rec.status AS rec_status "
+                "FROM audit.agent_runs r "
+                "LEFT JOIN LATERAL ( "
+                "  SELECT rec_id, title, risk_level, status "
+                "  FROM audit.recommendations "
+                "  WHERE run_id = r.run_id "
+                "  ORDER BY CASE risk_level "
+                "             WHEN 'high' THEN 0 "
+                "             WHEN 'medium' THEN 1 "
+                "             WHEN 'low' THEN 2 "
+                "             ELSE 3 END, "
+                "           created_at DESC "
+                "  LIMIT 1 "
+                ") rec ON true "
+                "WHERE r.run_id = :id"
             ),
             {"id": run_id},
         ).first()
@@ -112,7 +178,7 @@ def get_run(run_id: str) -> RunDetail:
         ).all()
 
     return RunDetail(
-        run=AgentRun(**dict(run_row._mapping)),
+        run=_row_to_run(run_row),
         steps=[AgentStep(**dict(s._mapping)) for s in step_rows],
         tool_calls=[ToolCall(**dict(c._mapping)) for c in call_rows],
     )
