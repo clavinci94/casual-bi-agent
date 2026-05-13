@@ -37,16 +37,20 @@ causal-bi/
 │   └── decisions/              ADRs
 ├── backend/
 │   ├── src/biq/
-│   │   ├── tools/              DOMAIN: kpi, context, causal
+│   │   ├── tools/              DOMAIN: kpi, context, causal, shopify,
+│   │   │                       correlation, external/{market,news,trends,
+│   │   │                       web_search,shopify_status,calendar}
 │   │   ├── seeders/            DOMAIN: synthetic data generators
-│   │   ├── agents/             APPLICATION: anomaly, investigator, graph
+│   │   ├── agents/             APPLICATION: anomaly, investigator, graph,
+│   │   │                       briefing (daily Markt-Radar synthesis)
 │   │   ├── audit.py            APPLICATION: cross-cutting audit
 │   │   ├── mcp_servers/        INTERFACE: MCP wrappers
 │   │   ├── ui/                 INTERFACE: Streamlit HITL
-│   │   ├── api/                INTERFACE: FastAPI (TBD)
+│   │   ├── api/                INTERFACE: FastAPI (live)
 │   │   ├── db.py + config.py   INFRASTRUCTURE
-│   ├── scripts/                CLI entry points
+│   ├── scripts/                CLI entry points (incl. briefing_smoke)
 │   └── tests/                  pytest, 88%+ coverage, @causal marker for R-dep
+│                               evals/: investigator + briefing judges
 ├── db/
 │   └── schemas/                SQL DDL per logical schema
 ├── r-service/                  Plumber + CausalImpact
@@ -103,10 +107,12 @@ psql postgresql://causalbi:causalbi@localhost:5433/causalbi \
 | Single DB vs multi-DB | Single Neon Postgres with schemas | Separate Neo4j + Postgres + Pinecone | Cost, deploy simplicity, one source of truth |
 | Graph store | Apache AGE in Postgres (fallback: relational adjacency) | External Neo4j AuraDB | Same DB, same backups, one connection |
 | Agent framework | LangGraph | CrewAI, AutoGen | Best state management, HITL support, debuggable traces |
-| Domain | E-commerce (Olist) | SaaS metrics, Trade | Best free dataset, strongest causal story |
+| Domain | E-commerce (Olist + Shopify Plus) | SaaS metrics, Trade | Best free dataset for thesis, Shopify Plus for go-to-market |
+| Regional focus | DACH (CH primary, DE/AT secondary) | EU-wide or global | Concentrated market, real pilot reach, native German UI |
 | LLM | Pluggable via MCP, default Claude Sonnet | Hardcoded OpenAI | No lock-in; local Ollama for sensitive prompts |
 | Causal toolkit | Both Python (DoWhy, EconML) AND R (CausalImpact, MatchIt, dagitty) | Python only | R has the most mature causal toolbox; differentiator |
 | Frontend | Next.js + Shiny dual | Pure Shiny | Next.js for hiring optics + Plotly; Shiny for statistical demos |
+| Daily synthesis | Single-shot Sonnet call with structured `submit_briefing` | Multi-step tool loop | Briefing inputs are bounded; loop wastes tokens |
 
 ## What NOT to do
 
@@ -175,6 +181,26 @@ stay public for probes.
 
 n8n integration starter: `n8n/workflows/monday-briefing.json` — cron-
 triggered weekly scan that posts high-severity findings to Slack.
+
+Tagesbriefing (`biq.agents.briefing`): single-shot synthesis over six
+signal blocks (DACH markets, Shopify platform status, commerce calendar,
+DACH news, own top categories, last-14-day Shopify KPIs). Output is a
+structured 3-5 bullet briefing via `submit_briefing` tool-use; persisted
+to `audit.agent_runs(trigger='briefing')` and cached for the calendar
+day. Served on `/markt-radar` via `BriefingCard`. Cron at 07:00 Mon–Fri
+via `n8n/workflows/daily-briefing.json`. Eval in
+`tests/evals/test_briefing_quality.py` scores factuality / specificity
+/ actionability on the structured output.
+
+DACH focus on the Markt-Radar page: market widget split into
+Schweiz/DACH (SMI/DAX/ATX + CHF crosses) and Globale Märkte
+(S&P/DXY/Gold/Oil/SHOP); news widget defaults to `region=dach` (8
+verified CH/DE/AT business-press RSS feeds); Trends widget seeds its
+default keywords from `shopify.top_product_categories` so the
+suggestions match the merchant's actual catalogue. New Korrelations-
+Karte computes Pearson + Spearman between any internal KPI and any
+market symbol (or trends keyword), with a 2-3-sentence Haiku narrative
+that refuses causal language.
 
 Remaining hardening (out of scope for the MVP): SSO/OAuth for the HITL
 UI, audit retention job, log shipping, alerting.

@@ -1,18 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import {
-  Search,
   Newspaper,
   TrendingUp,
   LineChart,
   ExternalLink,
-  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Card, ErrorMessage, Empty, Pill } from "@/components/ui";
+import { Card, ErrorMessage, Empty } from "@/components/ui";
 import { Sparkline } from "@/components/sparkline";
+import { BriefingCard } from "@/components/briefing-card";
+import { ShopifyStatusWidget } from "@/components/shopify-status-widget";
+import { CommerceCalendarWidget } from "@/components/commerce-calendar-widget";
+import { CorrelationCard } from "@/components/correlation-card";
+
+// Curated symbol sets — split so DACH-focused merchants see local
+// indices / FX side-by-side, separately from the global macro picture.
+const DACH_SYMBOLS = [
+  "^SSMI",
+  "^GDAXI",
+  "^ATX",
+  "EURCHF=X",
+  "USDCHF=X",
+  "CHFEUR=X",
+];
+
+const GLOBAL_SYMBOLS = [
+  "^GSPC",
+  "DX-Y.NYB",
+  "CL=F",
+  "GC=F",
+  "SHOP",
+  "BTC-USD",
+];
 
 function fmt(n: number, digits = 2): string {
   return n.toLocaleString("de-CH", {
@@ -23,7 +45,7 @@ function fmt(n: number, digits = 2): string {
 
 function fmtSignedPct(p: number | null): string {
   if (p == null || !Number.isFinite(p)) return "—";
-  const sign = p > 0 ? "+" : p < 0 ? "−" : "";
+  const sign = p > 0 ? "+" : p < 0 ? "-" : "";
   return `${sign}${Math.abs(p).toFixed(2)} %`;
 }
 
@@ -33,29 +55,64 @@ export default function MarktRadarPage() {
       <header className="max-w-3xl">
         <h1 className="text-2xl font-semibold tracking-tight">Markt-Radar</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">
-          Was draussen passiert, das Ihre Geschäftslage beeinflussen
-          könnte: aktuelle Nachrichten, Trend-Bewegungen bei
-          Konsumenten-Suchen, Börsen- und Wechselkurs-Daten, und eine
-          Klartext-Web-Suche. Der Agent zieht dieselben Quellen heran,
-          wenn er Anomalien erklärt — hier sehen Sie sie roh.
+          Was draussen passiert und was es für Ihren Shop heute bedeutet.
+          Der Agent fasst oben das Wichtigste in Klartext zusammen,
+          darunter zeigen wir die Roh-Signale aus Markt, Plattform und
+          Konsumenten-Interesse — und unten können Sie eigene Kennzahlen
+          gegen externe Reihen prüfen.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <MarketWidget />
+      {/* 1 — Tagesbriefing (full width, top) */}
+      <BriefingCard />
+
+      {/* 2-3 — Märkte: Schweiz/DACH neben Global */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <MarketWidget
+          title="Schweiz &amp; DACH"
+          subtitle="Indizes &amp; Wechselkurse"
+          symbols={DACH_SYMBOLS}
+        />
+        <MarketWidget
+          title="Globale Märkte"
+          subtitle="Leitindex, Öl, Gold, Shopify-Aktie"
+          symbols={GLOBAL_SYMBOLS}
+        />
+      </section>
+
+      {/* 4 — Plattform-Kontext (Shopify-Status + Commerce-Kalender) */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ShopifyStatusWidget />
+        <CommerceCalendarWidget />
+      </section>
+
+      {/* 5-6 — Aussenwelt: DACH-News neben Trends */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <NewsWidget />
-        <SearchWidget />
         <TrendsWidget />
-      </div>
+      </section>
+
+      {/* 7 — Korrelation (full width, bottom) */}
+      <CorrelationCard />
     </div>
   );
 }
 
 // -------------------------------------------------------------------- Markets
 
-function MarketWidget() {
-  const { data, error, isLoading } = useSWR(["external-market", "1mo"], () =>
-    api.externalMarket({ period: "1mo" }),
+function MarketWidget({
+  title,
+  subtitle,
+  symbols,
+}: {
+  title: string;
+  subtitle: string;
+  symbols: string[];
+}) {
+  const { data, error, isLoading } = useSWR(
+    ["external-market", symbols.join(",")],
+    () => api.externalMarket({ period: "1mo", symbols }),
+    { revalidateOnFocus: false },
   );
 
   return (
@@ -66,9 +123,9 @@ function MarketWidget() {
         </span>
         <div>
           <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-            Börsen &amp; Devisen
+            {subtitle}
           </div>
-          <h2 className="text-base font-semibold">Märkte heute</h2>
+          <h2 className="text-base font-semibold">{title}</h2>
         </div>
       </div>
 
@@ -140,22 +197,42 @@ function MarketWidget() {
 
 function NewsWidget() {
   const [query, setQuery] = useState("");
+  const [region, setRegion] = useState<"dach" | "default">("dach");
   const { data, error, isLoading } = useSWR(
-    ["external-news", query],
-    () => api.externalNews({ q: query, max: 8 }),
+    ["external-news", query, region],
+    () => api.externalNews({ q: query, max: 8, region }),
   );
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="size-8 rounded-lg bg-[var(--color-bg)] flex items-center justify-center">
-          <Newspaper className="size-4" />
-        </span>
-        <div className="flex-1">
-          <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-            Wirtschaftspresse
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="size-8 rounded-lg bg-[var(--color-bg)] flex items-center justify-center shrink-0">
+            <Newspaper className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
+              {region === "dach" ? "DACH-Wirtschaftspresse" : "Internationale Presse"}
+            </div>
+            <h2 className="text-base font-semibold">Aktuelle Schlagzeilen</h2>
           </div>
-          <h2 className="text-base font-semibold">Aktuelle Schlagzeilen</h2>
+        </div>
+        <div className="inline-flex rounded-md border border-[var(--color-border)] overflow-hidden shrink-0">
+          {(["dach", "default"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRegion(r)}
+              className={`px-2.5 py-1 text-xs font-medium ${
+                r === region
+                  ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+                  : "text-[var(--color-muted)] hover:bg-[var(--color-bg)]"
+              }`}
+              aria-pressed={r === region}
+            >
+              {r === "dach" ? "DACH" : "Welt"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -210,110 +287,35 @@ function NewsWidget() {
   );
 }
 
-// --------------------------------------------------------------------- Search
-
-function SearchWidget() {
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
-  const { data, error, isLoading } = useSWR(
-    query ? ["external-search", query] : null,
-    () => api.externalSearch({ q: query, max: 5 }),
-  );
-
-  return (
-    <Card className="p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="size-8 rounded-lg bg-[var(--color-bg)] flex items-center justify-center">
-          <Search className="size-4" />
-        </span>
-        <div>
-          <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-            Web-Suche
-          </div>
-          <h2 className="text-base font-semibold">Frag das Internet</h2>
-        </div>
-      </div>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setQuery(draft.trim());
-        }}
-        className="flex gap-2 mb-3"
-      >
-        <input
-          type="search"
-          placeholder='z.B. "Schweizer E-Commerce-Marktanteile 2026"'
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-        />
-        <button
-          type="submit"
-          className="px-3 py-2 rounded-md bg-[var(--color-accent)] text-[var(--color-accent-fg)] text-sm font-medium hover:opacity-90"
-        >
-          Suchen
-        </button>
-      </form>
-
-      {!query ? (
-        <Empty>Geben Sie eine Frage ein und drücken Sie Enter.</Empty>
-      ) : error ? (
-        <ErrorMessage error={error} />
-      ) : isLoading ? (
-        <div className="text-sm text-[var(--color-muted)] animate-pulse">
-          Suche läuft …
-        </div>
-      ) : data?.error ? (
-        <div className="text-xs space-y-2">
-          <Pill tone="warning">nicht konfiguriert</Pill>
-          <div className="text-[var(--color-muted)] leading-relaxed">
-            {data.error.includes("TAVILY")
-              ? "Tavily-API-Schlüssel fehlt im Backend. In .env eintragen (TAVILY_API_KEY=tvly-…) und Backend neu starten."
-              : data.error}
-          </div>
-        </div>
-      ) : !data?.results?.length ? (
-        <Empty>Keine Treffer.</Empty>
-      ) : (
-        <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-          {data.answer ? (
-            <div className="bg-[var(--color-bg)] rounded-md p-3 border border-[var(--color-border)]">
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-accent)] font-medium flex items-center gap-1 mb-1">
-                <Sparkles className="size-3" /> KI-Zusammenfassung
-              </div>
-              <p className="text-sm leading-relaxed">{data.answer}</p>
-            </div>
-          ) : null}
-          {data.results.map((r, idx) => (
-            <div key={`${r.url ?? idx}`} className="text-sm">
-              <a
-                href={r.url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium hover:underline text-[var(--color-fg)]"
-              >
-                {r.title ?? "(ohne Titel)"}
-                <ExternalLink className="inline size-3 ml-1 opacity-60" />
-              </a>
-              {r.content ? (
-                <p className="text-xs text-[var(--color-muted)] mt-0.5 line-clamp-3">
-                  {r.content}
-                </p>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
 // --------------------------------------------------------------------- Trends
 
 function TrendsWidget() {
-  const [draft, setDraft] = useState("sneaker, adidas");
+  // Load the shop's top revenue-generating categories once on mount and
+  // use them as both the initial keywords and a clickable suggestion list.
+  // Falls back gracefully if the shop has no orders yet.
+  const { data: topCats } = useSWR(
+    ["shopify-top-categories"],
+    () => api.shopifyTopCategories({ limit: 5, window_days: 90 }),
+    { revalidateOnFocus: false },
+  );
+  const suggestions: string[] = (topCats?.categories ?? [])
+    .map((c) => c.product_type.toLowerCase())
+    .slice(0, 5);
+
+  const [draft, setDraft] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [autoApplied, setAutoApplied] = useState(false);
+
+  // When the shop's categories arrive, seed both the input and the active
+  // query — but only once, so the user can still type their own values.
+  useEffect(() => {
+    if (autoApplied) return;
+    if (suggestions.length === 0) return;
+    setDraft(suggestions.join(", "));
+    setKeywords(suggestions);
+    setAutoApplied(true);
+  }, [autoApplied, suggestions]);
+
   const { data, error, isLoading } = useSWR(
     keywords.length ? ["external-trends", keywords.join(",")] : null,
     () => api.externalTrends({ keywords, geo: "CH", timeframe: "today 3-m" }),
@@ -360,6 +362,25 @@ function TrendsWidget() {
           Anzeigen
         </button>
       </form>
+
+      {suggestions.length > 0 ? (
+        <div className="-mt-1 mb-3 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
+          <span>Ihre Top-Kategorien:</span>
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setDraft(s);
+                setKeywords([s]);
+              }}
+              className="px-2 py-0.5 rounded-full border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {!keywords.length ? (
         <Empty>Begriffe eingeben und Enter drücken.</Empty>

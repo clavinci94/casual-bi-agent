@@ -14,6 +14,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from biq import __version__
 from biq.api import (
     admin,
+    briefing,
     external,
     health,
     investigations,
@@ -21,6 +22,7 @@ from biq.api import (
     kpi,
     recommendations,
     runs,
+    shopify,
 )
 from biq.api.auth import require_api_key
 from biq.api.middleware import RequestIDMiddleware
@@ -77,6 +79,8 @@ app.include_router(investigations.router, prefix="/api", dependencies=_protected
 app.include_router(kg.router, prefix="/api", dependencies=_protected)
 app.include_router(admin.router, prefix="/api", dependencies=_protected)
 app.include_router(external.router, prefix="/api", dependencies=_protected)
+app.include_router(shopify.router, prefix="/api", dependencies=_protected)
+app.include_router(briefing.router, prefix="/api", dependencies=_protected)
 
 
 @app.get("/", include_in_schema=False)

@@ -27,6 +27,8 @@ dependencies = [
     "feedparser>=6.0.12",
     "pyjwt[crypto]>=2.8",
     "cachetools>=5.3",
+    "holidays>=0.55",
+    "scipy>=1.17.1",
 ]
 
 [dependency-groups]

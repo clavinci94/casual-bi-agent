@@ -11,7 +11,9 @@ loop keeps going.
 """
 
 from biq.tools.external.cache import cached_query, get_cached, store_cached  # noqa: F401
+from biq.tools.external.calendar import commerce_calendar  # noqa: F401
 from biq.tools.external.market import market_snapshot  # noqa: F401
 from biq.tools.external.news import news_search  # noqa: F401
+from biq.tools.external.shopify_status import shopify_status  # noqa: F401
 from biq.tools.external.trends import trends_query  # noqa: F401
 from biq.tools.external.web_search import web_search  # noqa: F401

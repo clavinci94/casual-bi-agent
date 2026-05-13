@@ -497,6 +497,13 @@ _OUTCOME_KPI_SQL: dict[str, dict[str, str]] = {
         # short window with low traffic doesn't get unfairly noisy.
         "rate_expr": "SUM(conversions)::float / NULLIF(SUM(sessions), 0)",
     },
+    "shopify_orders": {
+        "view": "kpi.shopify_orders_daily",
+        "date_col": "day",
+        # Bestellungen pro Tag — über zwei gleich grosse Fenster
+        # direkt vergleichbar.
+        "rate_expr": "SUM(orders_completed)::float / NULLIF(COUNT(DISTINCT day), 0)",
+    },
 }
 
 

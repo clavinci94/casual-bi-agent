@@ -19,6 +19,29 @@ filters the response for high-severity insights, posts a digest to Slack.
                             → (else: noop)
 ```
 
+### `daily-briefing.json` — Daily Tagesbriefing at 07:00
+
+Cron-triggered Mon–Fri at 07:00 Europe/Zurich. Forces a fresh briefing
+(`POST /api/briefing/refresh`) so the first user of the day reads from
+the warm cache instead of paying the 20 s synthesis latency. If the
+briefing contains any `urgency: high` signal, Slack receives the
+headline + each urgent bullet's *what / why / action*. On any HTTP
+failure (3 retries, 30 s apart) Slack receives an error alert.
+
+```
+[Cron Mon–Fri 07:00 Europe/Zurich]
+    → [HTTP: POST /api/briefing/refresh]      (3× retry on 5xx)
+        ├─ success → [IF any signal urgency=high?]
+        │              ├─ yes → [Slack: headline + urgent bullets]
+        │              └─ no  → (noop)
+        └─ error   → [Slack: error alert with details]
+```
+
+Extra env var beyond the shared ones:
+
+- `DASHBOARD_PUBLIC_URL` — used in Slack messages to deep-link to the
+  Markt-Radar page (e.g. `https://app.causal-bi.ch`).
+
 ## Setup
 
 In n8n (self-hosted via Render, or n8n.cloud):
@@ -28,7 +51,8 @@ In n8n (self-hosted via Render, or n8n.cloud):
    - `BIQ_API_URL` — e.g. `https://biq-api.onrender.com`
    - `BIQ_API_KEY` — the value matching the API's `BIQ_API_KEY`
    - `SLACK_WEBHOOK_URL` — incoming webhook URL from Slack
-   - `HITL_URL` — e.g. `https://biq-hitl.onrender.com`
+   - `HITL_URL` — e.g. `https://biq-hitl.onrender.com` (monday-briefing)
+   - `DASHBOARD_PUBLIC_URL` — e.g. `https://app.causal-bi.ch` (daily-briefing)
 3. **Activate** the workflow.
 
 ## Adding more workflows

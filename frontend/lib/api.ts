@@ -15,6 +15,9 @@ import type {
   AgentRun,
   AnthropicApiKey,
   AnthropicApiKeyList,
+  BriefingResponse,
+  CommerceCalendarResponse,
+  CorrelationResponse,
   DecisionResponse,
   HealthStatus,
   Insight,
@@ -24,6 +27,7 @@ import type {
   NewsResponse,
   Recommendation,
   RunDetail,
+  ShopifyStatusResponse,
   TrendsResponse,
   WebSearchResponse,
 } from "./types";
@@ -148,12 +152,30 @@ export const api = {
     }),
 
   // external intelligence (Markt-Radar)
-  externalNews: (params: { q?: string; max?: number; lang?: "de" | "en" } = {}) => {
+  externalNews: (params: {
+    q?: string;
+    max?: number;
+    lang?: "de" | "en";
+    region?: "default" | "dach";
+  } = {}) => {
     const qs = new URLSearchParams();
     if (params.q) qs.set("q", params.q);
     qs.set("max_results", String(params.max ?? 10));
     qs.set("language", params.lang ?? "de");
+    if (params.region) qs.set("region", params.region);
     return request<NewsResponse>(`/api/external/news?${qs}`);
+  },
+
+  shopifyTopCategories: (params: { limit?: number; window_days?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.window_days) qs.set("window_days", String(params.window_days));
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<{
+      window_days: number;
+      categories: { product_type: string; revenue: number; units_sold: number; n_orders: number }[];
+      horizon: { start: string | null; end: string | null };
+    }>(`/api/shopify/top-categories${suffix}`);
   },
   externalSearch: (params: { q: string; max?: number; days?: number; topic?: "general" | "news" }) => {
     const qs = new URLSearchParams({ q: params.q });
@@ -182,6 +204,42 @@ export const api = {
     if (params.period) qs.set("period", params.period);
     return request<MarketResponse>(`/api/external/market?${qs}`);
   },
+
+  externalShopifyStatus: () =>
+    request<ShopifyStatusResponse>("/api/external/shopify-status"),
+
+  externalCommerceCalendar: (
+    params: { country?: "CH" | "DE" | "AT"; limit?: number; window_days?: number } = {},
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.country) qs.set("country", params.country);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.window_days) qs.set("window_days", String(params.window_days));
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<CommerceCalendarResponse>(`/api/external/commerce-calendar${suffix}`);
+  },
+
+  externalCorrelateWithShop: (params: {
+    internal: string;
+    external_kind: "market" | "trends";
+    external_key: string;
+    days?: number;
+  }) => {
+    const qs = new URLSearchParams({
+      internal: params.internal,
+      external_kind: params.external_kind,
+      external_key: params.external_key,
+    });
+    if (params.days) qs.set("days", String(params.days));
+    return request<CorrelationResponse>(
+      `/api/external/correlate-with-shop?${qs}`,
+    );
+  },
+
+  // Tagesbriefing
+  briefingToday: () => request<BriefingResponse>("/api/briefing/today"),
+  briefingRefresh: () =>
+    request<BriefingResponse>("/api/briefing/refresh", { method: "POST" }),
 
   // investigations
   startLlmInvestigation: (payload: {

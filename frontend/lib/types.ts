@@ -191,3 +191,127 @@ export type TrendsResponse = {
   cache?: "hit" | "miss";
   error?: string;
 };
+
+// --- Commerce calendar (biq.tools.external.calendar) ---
+
+export type CommerceEventKind =
+  | "national_holiday"
+  | "religious"
+  | "commerce_event"
+  | string;
+
+export type CommerceEvent = {
+  name: string;
+  date: string; // ISO date
+  days_away: number;
+  kind: CommerceEventKind;
+  note: string;
+  country: string;
+};
+
+export type CommerceCalendarResponse = {
+  country: string;
+  today: string;
+  window_days: number;
+  events: CommerceEvent[];
+};
+
+// --- Shopify platform status (statuspage.io shape, narrowed) ---
+
+export type ShopifyComponentStatus =
+  | "operational"
+  | "degraded_performance"
+  | "partial_outage"
+  | "major_outage"
+  | "under_maintenance"
+  | string;
+
+export type ShopifyOverallIndicator =
+  | "none"
+  | "minor"
+  | "major"
+  | "critical"
+  | string;
+
+export type ShopifyComponent = {
+  name: string | null;
+  status: ShopifyComponentStatus;
+  is_critical: boolean;
+  updated_at: string | null;
+};
+
+export type ShopifyIncident = {
+  id: string | null;
+  name: string | null;
+  impact: "none" | "minor" | "major" | "critical" | string;
+  status: "investigating" | "identified" | "monitoring" | "resolved" | string;
+  started_at: string | null;
+  updated_at: string | null;
+  components: string[];
+  url: string | null;
+};
+
+export type ShopifyStatusResponse = {
+  overall: { indicator: ShopifyOverallIndicator; description: string };
+  components: ShopifyComponent[];
+  active_incidents: ShopifyIncident[];
+  scheduled_maintenances: ShopifyIncident[];
+  fetched_from?: string;
+  cache?: "hit" | "miss";
+  error?: string;
+};
+
+// --- Correlation (biq.tools.correlation) ---
+
+export type CorrelationStats = {
+  n: number;
+  pearson_r: number | null;
+  pearson_p: number | null;
+  spearman_r: number | null;
+  spearman_p: number | null;
+  note?: string;
+};
+
+export type CorrelationPoint = {
+  date: string;
+  internal: number;
+  external: number;
+};
+
+export type CorrelationResponse = {
+  internal: { name: string; label: string; unit: string };
+  external: { kind: "market" | "trends" | string; key: string; label: string };
+  window_days: number;
+  stats: CorrelationStats;
+  series: CorrelationPoint[];
+  narrative: string | null;
+};
+
+// --- Tagesbriefing (biq.agents.briefing) ---
+
+export type BriefingSignal = {
+  what: string;
+  why_for_you: string;
+  action: string;
+  urgency: "low" | "medium" | "high";
+  source:
+    | "markets"
+    | "news"
+    | "shopify_status"
+    | "commerce_calendar"
+    | "trends"
+    | "kpis"
+    | string;
+};
+
+export type BriefingPayload = {
+  headline: string;
+  signals: BriefingSignal[];
+};
+
+export type BriefingResponse = {
+  run_id: string;
+  generated_at: string | null;
+  briefing: BriefingPayload;
+  from_cache: boolean;
+};

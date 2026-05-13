@@ -74,16 +74,35 @@ def market_snapshot(
 
 
 _FRIENDLY_NAMES: dict[str, str] = {
+    # DACH indices + FX
     "^SSMI": "SMI · Swiss Market",
     "^GDAXI": "DAX · Deutschland",
-    "^GSPC": "S&P 500 · USA",
+    "^ATX": "ATX · Österreich",
     "EURCHF=X": "EUR / CHF",
     "USDCHF=X": "USD / CHF",
+    "CHFEUR=X": "CHF / EUR",
     "GBPCHF=X": "GBP / CHF",
+    # Global indices + currencies
+    "^GSPC": "S&P 500 · USA",
+    "DX-Y.NYB": "US-Dollar-Index (DXY)",
+    # Commodities + crypto
     "GC=F": "Gold (Spot)",
     "CL=F": "Brent-Öl",
     "BTC-USD": "Bitcoin",
+    # Shopify-Plattform-Indikator
+    "SHOP": "Shopify (NYSE)",
 }
+
+# Preset symbol sets the API consumer can request by name.
+_PRESETS: dict[str, list[str]] = {
+    "dach": ["^SSMI", "^GDAXI", "^ATX", "EURCHF=X", "USDCHF=X", "CHFEUR=X"],
+    "global": ["^GSPC", "DX-Y.NYB", "CL=F", "GC=F", "SHOP", "BTC-USD"],
+}
+
+
+def resolve_preset(name: str) -> list[str] | None:
+    """Return the symbol list for a named preset, or None for unknown."""
+    return _PRESETS.get(name.lower())
 
 
 def _friendly(symbol: str) -> str:

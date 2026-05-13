@@ -388,3 +388,116 @@ def _finish_sync(sync_id: str, rows: int, error: str | None = None) -> None:
 
 def now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+# -------- aggregates for the Markt-Radar / briefing widgets ----------
+
+
+def top_product_categories(
+    *,
+    limit: int = 5,
+    window_days: int = 90,
+    min_revenue: float = 0.0,
+) -> dict[str, Any]:
+    """Return the top revenue-generating product_types in the last N days.
+
+    The Markt-Radar's Trends widget needs realistic default keywords to
+    show search-interest data for. Empty defaults ("sneaker, adidas")
+    are generic — these are shop-specific.
+
+    Joins `raw.shopify_orders.raw->'line_items'` (JSONB array) against
+    `raw.shopify_products.product_id`, sums quantity * price per
+    product_type, returns the top N.
+
+    Args:
+        limit: top-N categories to return (default 5, the Markt-Radar uses 3-5).
+        window_days: revenue window in days (default 90).
+        min_revenue: floor — a category with revenue below this is omitted
+            entirely, so an almost-empty shop doesn't surface a tail noise
+            category as a "top" pick.
+
+    Returns:
+        {
+            "window_days": int,
+            "categories": [
+                {"product_type": str, "revenue": float, "units_sold": int,
+                 "n_orders": int},
+                ...
+            ],
+            "horizon": {"start": iso, "end": iso}  // empty if no orders
+        }
+
+    The function is safe on an empty shop (returns categories=[]).
+    """
+    sql = text(
+        """
+        WITH expanded AS (
+            SELECT
+                o.order_id,
+                (li->>'product_id')             AS product_id,
+                COALESCE((li->>'quantity')::int, 0)    AS quantity,
+                COALESCE((li->>'price')::numeric, 0)   AS unit_price
+            FROM raw.shopify_orders o,
+                 LATERAL jsonb_array_elements(
+                     COALESCE(o.raw->'line_items', '[]'::jsonb)
+                 ) li
+            WHERE o.created_at >= now() - make_interval(days => :win)
+              AND o.cancelled_at IS NULL
+        )
+        SELECT
+            p.product_type,
+            SUM(e.quantity * e.unit_price)::float8 AS revenue,
+            SUM(e.quantity)::int                   AS units_sold,
+            COUNT(DISTINCT e.order_id)             AS n_orders
+        FROM expanded e
+        JOIN raw.shopify_products p ON p.product_id = e.product_id
+        WHERE p.product_type IS NOT NULL AND p.product_type <> ''
+        GROUP BY p.product_type
+        HAVING SUM(e.quantity * e.unit_price) >= :min_rev
+        ORDER BY revenue DESC
+        LIMIT :lim
+        """
+    )
+
+    horizon_sql = text(
+        "SELECT MIN(created_at), MAX(created_at) FROM raw.shopify_orders "
+        "WHERE created_at >= now() - make_interval(days => :win) "
+        "  AND cancelled_at IS NULL"
+    )
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            sql,
+            {"win": window_days, "min_rev": float(min_revenue), "lim": int(limit)},
+        ).all()
+        horizon = conn.execute(horizon_sql, {"win": window_days}).first()
+
+    categories = [
+        {
+            "product_type": r[0],
+            "revenue": round(float(r[1]), 2),
+            "units_sold": int(r[2]),
+            "n_orders": int(r[3]),
+        }
+        for r in rows
+    ]
+
+    return {
+        "window_days": window_days,
+        "categories": categories,
+        "horizon": {
+            "start": horizon[0].isoformat() if horizon and horizon[0] else None,
+            "end": horizon[1].isoformat() if horizon and horizon[1] else None,
+        },
+    }
+
+
+def top_category_keywords(*, limit: int = 5, window_days: int = 90) -> list[str]:
+    """Convenience wrapper: just the lowercased product_type strings.
+
+    The Trends widget wants a flat string list as its default keywords;
+    this hides the schema of `top_product_categories` from the frontend
+    caller.
+    """
+    payload = top_product_categories(limit=limit, window_days=window_days)
+    return [c["product_type"].lower() for c in payload["categories"]]

@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies detect-shopify-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals frontend-install frontend-dev frontend-build shopify-sync shopify-sync-incremental shopify-simulate slack-test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies detect-shopify-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals briefing-smoke frontend-install frontend-dev frontend-build shopify-sync shopify-sync-incremental shopify-simulate slack-test
 
 help:
 	@echo "Targets:"
@@ -30,6 +30,7 @@ help:
 	@echo "  lint          ruff check + mypy"
 	@echo "  test          pytest"
 	@echo "  evals         LLM-as-judge quality eval (costs ~CHF 0.05/run, needs ANTHROPIC_API_KEY)"
+	@echo "  briefing-smoke    One-shot briefing dry-run (prints to stdout, ~CHF 0.10)"
 	@echo "  frontend-install  npm install in frontend/"
 	@echo "  frontend-dev      Next.js dev server on http://localhost:3000 (needs api-serve running)"
 	@echo "  frontend-build    Next.js production build"
@@ -121,6 +122,10 @@ test:
 evals:
 	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" \
 		uv run pytest -m eval -v -s tests/evals/
+
+briefing-smoke:
+	@cd backend && DATABASE_URL="$(DB_URL)" R_BASE_URL="http://localhost:8765" \
+		uv run python scripts/briefing_smoke.py
 
 frontend-install:
 	cd frontend && npm install

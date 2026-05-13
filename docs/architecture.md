@@ -5,11 +5,14 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ 5 · Decision Layer    Next.js + Plotly · R Shiny views       │
-│                       HITL queue · Audit trail · Slack alerts│
+│                       HITL queue · Audit trail · Slack alerts │
+│                       Markt-Radar: Briefing · Plattform-Status│
+│                                    Commerce-Kalender · Korrel.│
 ├──────────────────────────────────────────────────────────────┤
 │ 4 · AI Analytics      LangGraph orchestrator                  │
 │                       Agents: Data | Stats | Causal |         │
 │                               Narrative | Review              │
+│                       Briefing agent (daily synthesis, n8n)   │
 ├──────────────────────────────────────────────────────────────┤
 │ 3 · Semantic Layer    kpi.* views (formulas, grain, filters)  │
 │                       docs/kpi-catalog.yaml is source-of-truth│
@@ -20,7 +23,9 @@
 ├──────────────────────────────────────────────────────────────┤
 │ 1 · Data Sources      Olist CSVs · simulated events,          │
 │                       campaigns, releases, support tickets    │
-│                       (later: Shopify/Stripe/GA via n8n)      │
+│                       Shopify Admin API (live, via raw.shopify_*)│
+│                       External APIs: Yahoo Finance · NewsAPI/RSS│
+│                       Google Trends · status.shopify.com       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,6 +75,66 @@ See `db/schemas/*.sql` for full DDL.
 | `docs` | Unstructured + vectors | `documents`, `chunks` (with `vector(1536)`) |
 | `kg` | Knowledge graph | `nodes`, `edges` (or AGE labels: `Customer`, `Insight`, `Decision`, `Outcome`, ...) |
 | `audit` | Full observability | `agent_runs`, `agent_steps`, `tool_calls`, `sources_used`, `recommendations`, `hitl_decisions`, `outcomes` |
+
+## Data flow: Tagesbriefing (Markt-Radar daily synthesis)
+
+A second agent flow separate from the anomaly investigation: a once-per-
+workday synthesis that pulls **six bounded signal blocks** and writes
+one Manager-readable briefing.
+
+```
+[n8n cron Mon–Fri 07:00 Europe/Zurich]
+       │
+       ▼
+POST /api/briefing/refresh
+       │
+       │  briefing.gather_signals():
+       │    1. market_snapshot       (DACH symbols)
+       │    2. shopify_status        (status.shopify.com)
+       │    3. commerce_calendar     (CH/DE/AT holidays + BFCM)
+       │    4. news_search           (region=dach RSS / NewsAPI)
+       │    5. top_product_categories (own Shopify revenue)
+       │    6. trends_query          (Google Trends for own categories)
+       │    + kpi.shopify_orders_daily last 14 days
+       │
+       │  Each fetch logs an audit.agent_steps row.
+       │  Compact payload persisted on the synthesize step's input.
+       ▼
+Claude Sonnet 4.6, structured tool_use `submit_briefing`
+       │   max 5 signals · {what, why_for_you, action, urgency, source}
+       │   forbidden: numbers not verbatim in the input block
+       ▼
+audit.agent_runs(trigger='briefing')
+       │
+       ├─→ GET /api/briefing/today  (cached for the day)
+       │       └─→ BriefingCard on /markt-radar
+       │
+       └─→ Slack webhook (n8n)
+               • headline + high-urgency bullets if any
+               • error alert on retry-exhausted failure
+```
+
+Costs ~CHF 0.10–0.15 per refresh (≈ CHF 3/month at 22 workdays).
+Eval: `make evals` runs `test_briefing_quality.py` which scores each
+signal on factuality / specificity / actionability via Haiku
+(~CHF 0.01/score).
+
+## External-intelligence tools (`biq.tools.external`)
+
+Each module is a thin client with a shared cache via `raw.external_signals`
+(per-source TTL). All return errors as `{error: str, ...}` rather than
+raising — so the briefing agent and investigator keep going if one
+upstream is down.
+
+| Module | TTL | Source | Used by |
+|---|---|---|---|
+| `market.py` | 15 min | Yahoo Finance + SNB | Markt-Radar markets, investigator |
+| `news.py` | 30 min | NewsAPI fallback to RSS | Markt-Radar news, investigator |
+| `trends.py` | 60 min | pytrends | Markt-Radar trends, investigator |
+| `web_search.py` | 60 min | Tavily | Investigator only |
+| `shopify_status.py` | 5 min | status.shopify.com | Briefing, Markt-Radar |
+| `calendar.py` | — | `holidays` pkg + hardcoded BFCM | Briefing, Markt-Radar |
+| `correlation.py` | — | composes market + KPI | Markt-Radar Korrelations-Karte |
 
 ## Why this shape
 

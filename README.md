@@ -20,6 +20,16 @@ This platform:
 
 On the deliberately-injected `mobile_checkout_v2` regression in the demo dataset, the system **rediscovers a -38.4 % causal effect with 95 % CI [-41.8 %, -34.7 %], p = 0.001**, automatically cross-references the relevant release, drafts a management-grade finding, and routes it through HITL. End-to-end in under 10 seconds.
 
+## DACH focus
+
+Built for Shopify-Plus merchants in **Switzerland first, DACH second**. That is concrete in the product, not just on a slide:
+
+- **Markt-Radar** with two market columns (Schweiz/DACH: SMI/DAX/ATX + CHF crosses; Globale Märkte: S&P/DXY/Gold/Öl/SHOP)
+- **DACH-Wirtschaftspresse** — NZZ, SRF, Handelsblatt, Manager Magazin, FAZ, SZ, Der Standard, ORF (8 verified RSS feeds), with a one-click toggle to global news
+- **Schweizer Commerce-Kalender** — bank holidays plus BFCM, Singles' Day, Vatertag CH, Heiligabend cut-offs, with countdowns
+- **Tagesbriefing** — every weekday at 07:00 the agent synthesises six bounded signal blocks (markets, plattform-status, calendar, news, trends, own KPIs) into 3-5 manager-readable bullets with *what / why for you / action*. Costs ~CHF 0.10/day, runs via n8n
+- **Korrelations-Karte** — pick any own KPI vs any market symbol, get Pearson/Spearman + p-value + a Haiku-written interpretation that refuses to claim causation
+
 ## Architecture
 
 ```mermaid
@@ -35,6 +45,7 @@ flowchart TB
         ANOM["agents.anomaly<br/>heuristic"]
         INV["agents.investigator<br/>Claude tool-use"]
         GRAPH["agents.graph<br/>LangGraph multi-agent"]
+        BRIEF["agents.briefing<br/>daily synthesis (07:00)"]
         AUDIT["audit<br/>run / step / tool_call / rec / hitl"]
     end
 
@@ -43,6 +54,9 @@ flowchart TB
         CTX["tools.context"]
         CAU["tools.causal"]
         KG["tools.kg<br/>(memory)"]
+        SHOP["tools.shopify<br/>(orders + top categories)"]
+        CORR["tools.correlation<br/>(Pearson + Spearman)"]
+        EXT["tools.external<br/>market · news · trends ·<br/>shopify_status · calendar"]
     end
 
     subgraph INFRA["Infrastructure"]
@@ -54,19 +68,22 @@ flowchart TB
     CLI --> ANOM & INV & GRAPH
     MCP --> KPI & CTX & CAU & KG
     UI  --> AUDIT
-    API --> ANOM & GRAPH & AUDIT & KG
+    API --> ANOM & GRAPH & BRIEF & AUDIT & KG & CORR
 
-    ANOM --> KPI & AUDIT
-    INV  --> KPI & CTX & CAU & KG & AUDIT
+    ANOM  --> KPI & AUDIT
+    INV   --> KPI & CTX & CAU & KG & EXT & AUDIT
     GRAPH --> KPI & CTX & CAU & KG & AUDIT
+    BRIEF --> KPI & SHOP & EXT & AUDIT
+    CORR  --> KPI & EXT
 
     KPI --> PG
     CTX --> PG
     KG  --> PG
+    SHOP --> PG
     AUDIT --> PG
     CAU --> R
     R   --> PG
-    N8N -.calls.-> API
+    N8N -.daily 07:00.-> API
 ```
 
 Strict layering — see [`docs/clean-architecture.md`](docs/clean-architecture.md) for the dependency rules.
