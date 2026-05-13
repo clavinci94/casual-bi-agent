@@ -14,7 +14,15 @@
  */
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 
+// SDK v4 reads the tenant from AUTH0_DOMAIN (bare hostname). We keep
+// AUTH0_ISSUER_BASE_URL as the single source of truth because the backend
+// JWT validator also uses it as the JWT `iss` claim, so we feed the SDK
+// from there explicitly instead of duplicating the value into AUTH0_DOMAIN.
+const issuer = process.env.AUTH0_ISSUER_BASE_URL ?? "";
+const domain = issuer ? issuer.replace(/^https?:\/\//, "").replace(/\/$/, "") : undefined;
+
 export const auth0 = new Auth0Client({
+  domain,
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
     scope: process.env.AUTH0_SCOPE ?? "openid profile email",
