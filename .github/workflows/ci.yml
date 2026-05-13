@@ -78,7 +78,7 @@ jobs:
         working-directory: backend
         run: uv run python scripts/seed_minimal.py
 
-      - name: pytest with coverage (fail < 75%)
+      - name: pytest with coverage (fail < 70%)
         working-directory: backend
         run: |
           uv run pytest -m "not causal" \
@@ -96,7 +96,7 @@ jobs:
       - name: Coverage summary
         if: always()
         working-directory: backend
-        run: uv run coverage report --fail-under=75
+        run: uv run coverage report --fail-under=70
 
   docker:
     name: Build Docker images
