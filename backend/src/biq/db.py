@@ -76,4 +76,6 @@ def current_data_source() -> str:
     """Return the live `biq.data_source` value the next query will see.
     Useful for the topbar indicator and for debugging."""
     with engine.connect() as conn:
-        return conn.execute(text("SELECT current_setting('biq.data_source', true)")).scalar() or "sim"
+        return (
+            conn.execute(text("SELECT current_setting('biq.data_source', true)")).scalar() or "sim"
+        )

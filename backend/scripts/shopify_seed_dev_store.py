@@ -49,26 +49,64 @@ ANOMALY_DAYS = 14
 ANOMALY_MOBILE_DROP = 0.65  # mobile orders fall to 35 % of normal in window
 
 CHANNEL_WEIGHTS = {
-    "web": 55,         # → 'desktop' in our channel logic
-    "ios_app": 18,     # → 'mobile'
-    "android_app": 12, # → 'mobile'
+    "web": 55,  # → 'desktop' in our channel logic
+    "ios_app": 18,  # → 'mobile'
+    "android_app": 12,  # → 'mobile'
     "pos": 10,
     "other": 5,
 }
 
 # Swiss + DACH cities for plausible addresses
 CITIES = [
-    ("Zürich", "ZH", "CH"), ("Genf", "GE", "CH"), ("Bern", "BE", "CH"),
-    ("Basel", "BS", "CH"), ("Lausanne", "VD", "CH"), ("Luzern", "LU", "CH"),
-    ("Winterthur", "ZH", "CH"), ("St. Gallen", "SG", "CH"),
-    ("Berlin", "BE", "DE"), ("München", "BY", "DE"), ("Hamburg", "HH", "DE"),
-    ("Wien", "9", "AT"), ("Graz", "6", "AT"),
+    ("Zürich", "ZH", "CH"),
+    ("Genf", "GE", "CH"),
+    ("Bern", "BE", "CH"),
+    ("Basel", "BS", "CH"),
+    ("Lausanne", "VD", "CH"),
+    ("Luzern", "LU", "CH"),
+    ("Winterthur", "ZH", "CH"),
+    ("St. Gallen", "SG", "CH"),
+    ("Berlin", "BE", "DE"),
+    ("München", "BY", "DE"),
+    ("Hamburg", "HH", "DE"),
+    ("Wien", "9", "AT"),
+    ("Graz", "6", "AT"),
 ]
 
-FIRST_NAMES = ["Anna", "Lars", "Sophie", "Marc", "Lea", "Tobias", "Mira", "Jonas",
-               "Lina", "Kai", "Nora", "Felix", "Elena", "Luca", "Maja", "Tim"]
-LAST_NAMES = ["Müller", "Meier", "Schmid", "Weber", "Fischer", "Keller", "Brunner",
-              "Hofer", "Lang", "Werner", "Steiner", "Bauer", "Wolf", "Berger"]
+FIRST_NAMES = [
+    "Anna",
+    "Lars",
+    "Sophie",
+    "Marc",
+    "Lea",
+    "Tobias",
+    "Mira",
+    "Jonas",
+    "Lina",
+    "Kai",
+    "Nora",
+    "Felix",
+    "Elena",
+    "Luca",
+    "Maja",
+    "Tim",
+]
+LAST_NAMES = [
+    "Müller",
+    "Meier",
+    "Schmid",
+    "Weber",
+    "Fischer",
+    "Keller",
+    "Brunner",
+    "Hofer",
+    "Lang",
+    "Werner",
+    "Steiner",
+    "Bauer",
+    "Wolf",
+    "Berger",
+]
 
 
 def _client() -> httpx.Client:
@@ -90,6 +128,7 @@ def _retry_429(fn):  # type: ignore[no-untyped-def]
     """Sleep + retry on Shopify's 429 with Retry-After header. Shopify
     free dev-stores cap REST at ~2 req/s with a small bucket — when the
     bucket empties we wait 4-8 s before resuming, generous on purpose."""
+
     def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
         for attempt in range(20):
             resp: httpx.Response = fn(*args, **kwargs)
@@ -100,6 +139,7 @@ def _retry_429(fn):  # type: ignore[no-untyped-def]
             print(f"  429 — Pause {wait:.1f}s (Versuch {attempt + 1}/20) …")
             time.sleep(wait)
         raise RuntimeError("rate-limit retries exhausted")
+
     return wrapper
 
 
@@ -129,6 +169,7 @@ def fetch_variant_ids(client: httpx.Client) -> list[tuple[int, float]]:
         if 'rel="next"' not in link:
             break
         import re
+
         m = re.search(r"page_info=([^&>]+)[^>]*>;\s*rel=\"next\"", link)
         if not m:
             break
@@ -200,9 +241,7 @@ def create_order(
     qty = random.choice([1, 1, 1, 2, 2, 3])
     payload = {
         "order": {
-            "line_items": [
-                {"variant_id": variant_id, "quantity": qty}
-            ],
+            "line_items": [{"variant_id": variant_id, "quantity": qty}],
             "customer": {"id": customer_id},
             "financial_status": "paid",
             "fulfillment_status": "fulfilled",
@@ -252,7 +291,9 @@ def main() -> int:
     random.seed(42)  # deterministic-ish so re-runs produce similar shape
     print(f"Seeding {settings.shopify_shop_domain} (API {settings.shopify_api_version})")
     print(f"  customers={N_CUSTOMERS} orders={N_ORDERS} window={WINDOW_DAYS}d")
-    print(f"  anomaly: last {ANOMALY_DAYS} days, mobile drops to {int((1 - ANOMALY_MOBILE_DROP) * 100)} %")
+    print(
+        f"  anomaly: last {ANOMALY_DAYS} days, mobile drops to {int((1 - ANOMALY_MOBILE_DROP) * 100)} %"
+    )
     print()
 
     with _client() as client:
@@ -302,7 +343,9 @@ def main() -> int:
             weights = anomaly_weights if in_anomaly else CHANNEL_WEIGHTS
             source = pick_source(weights)
             channel = source_to_channel(source)
-            if create_order(client, random.choice(variants), random.choice(customer_ids), when, channel):
+            if create_order(
+                client, random.choice(variants), random.choice(customer_ids), when, channel
+            ):
                 ok += 1
             if (i + 1) % 25 == 0:
                 print(f"  {i + 1}/{N_ORDERS} done (ok={ok})")
