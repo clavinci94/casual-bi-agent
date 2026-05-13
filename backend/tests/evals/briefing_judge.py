@@ -181,8 +181,7 @@ def score(trace: BriefingTrace, *, api_key: str | None = None) -> BriefingScore:
                 "role": "user",
                 "content": (
                     "Score this briefing. The JSON below is everything the "
-                    "agent saw (signal_blocks) and produced (briefing).\n\n"
-                    + user_msg
+                    "agent saw (signal_blocks) and produced (briefing).\n\n" + user_msg
                 ),
             }
         ],
@@ -200,6 +199,4 @@ def score(trace: BriefingTrace, *, api_key: str | None = None) -> BriefingScore:
                 actionability_reason=str(d["actionability_reason"]),
             )
 
-    raise RuntimeError(
-        f"judge did not call submit_score (stop_reason={resp.stop_reason})"
-    )
+    raise RuntimeError(f"judge did not call submit_score (stop_reason={resp.stop_reason})")

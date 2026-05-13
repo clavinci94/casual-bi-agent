@@ -78,7 +78,9 @@ def _is_critical(name: str | None) -> bool:
 def _component_summary(c: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": c.get("name"),
-        "status": c.get("status"),  # operational | degraded_performance | partial_outage | major_outage | under_maintenance
+        "status": c.get(
+            "status"
+        ),  # operational | degraded_performance | partial_outage | major_outage | under_maintenance
         "is_critical": _is_critical(c.get("name")),
         "updated_at": c.get("updated_at"),
     }
@@ -92,9 +94,7 @@ def _incident_summary(inc: dict[str, Any]) -> dict[str, Any]:
         "status": inc.get("status"),  # investigating | identified | monitoring | resolved
         "started_at": inc.get("started_at") or inc.get("created_at"),
         "updated_at": inc.get("updated_at"),
-        "components": [
-            c.get("name") for c in (inc.get("components") or []) if c.get("name")
-        ],
+        "components": [c.get("name") for c in (inc.get("components") or []) if c.get("name")],
         "url": inc.get("shortlink") or inc.get("incident_url"),
     }
 
@@ -125,9 +125,7 @@ def _fetch_status() -> dict[str, Any]:
     ]
 
     incidents = [_incident_summary(i) for i in (data.get("incidents") or [])]
-    maintenances = [
-        _incident_summary(m) for m in (data.get("scheduled_maintenances") or [])
-    ]
+    maintenances = [_incident_summary(m) for m in (data.get("scheduled_maintenances") or [])]
 
     return {
         "overall": {

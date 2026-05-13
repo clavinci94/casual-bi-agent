@@ -1,6 +1,6 @@
 """Smoke-test for the Slack webhook configured in .env.
 
-    uv run python scripts/slack_test.py
+uv run python scripts/slack_test.py
 """
 
 from __future__ import annotations
@@ -14,10 +14,7 @@ from biq.integrations import slack
 def main() -> None:
     if not settings.slack_webhook_url:
         print("SLACK_WEBHOOK_URL ist nicht in .env gesetzt.")
-        print(
-            "Eine Incoming-Webhook-URL anlegen: "
-            "https://api.slack.com/messaging/webhooks"
-        )
+        print("Eine Incoming-Webhook-URL anlegen: https://api.slack.com/messaging/webhooks")
         sys.exit(1)
 
     ok = slack.notify_test()

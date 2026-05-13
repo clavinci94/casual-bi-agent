@@ -52,10 +52,7 @@ def _load_jwks() -> dict[str, Any]:
     import httpx
 
     now = time.time()
-    if (
-        _JWKS_CACHE["keys"] is not None
-        and (now - _JWKS_CACHE["fetched_at"]) < _JWKS_TTL_SECONDS
-    ):
+    if _JWKS_CACHE["keys"] is not None and (now - _JWKS_CACHE["fetched_at"]) < _JWKS_TTL_SECONDS:
         return _JWKS_CACHE["keys"]
 
     url = settings.biq_jwt_jwks_url
@@ -114,9 +111,7 @@ def _require_bearer(token: str | None) -> dict[str, Any]:
 def require_api_key(
     request: Request,
     api_key: Annotated[str | None, Security(_API_KEY_HEADER)] = None,
-    bearer: Annotated[
-        HTTPAuthorizationCredentials | None, Security(_BEARER)
-    ] = None,
+    bearer: Annotated[HTTPAuthorizationCredentials | None, Security(_BEARER)] = None,
 ) -> None:
     """FastAPI dependency. Picks the auth mode from settings and enforces
     accordingly. Name kept as `require_api_key` for back-compat with

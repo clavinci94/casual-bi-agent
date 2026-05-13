@@ -123,9 +123,7 @@ def news_search(
     )
 
 
-def _fetch_newsapi(
-    query: str, max_results: int, language: str, region: str
-) -> dict[str, Any]:
+def _fetch_newsapi(query: str, max_results: int, language: str, region: str) -> dict[str, Any]:
     try:
         params: dict[str, Any] = {
             "apiKey": settings.newsapi_key,

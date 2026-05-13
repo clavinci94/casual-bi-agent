@@ -259,9 +259,7 @@ def list_recent_insights(
     ]
 
 
-def _coalesce_decision(
-    node_id: str | None, props: dict[str, Any] | None
-) -> dict[str, Any] | None:
+def _coalesce_decision(node_id: str | None, props: dict[str, Any] | None) -> dict[str, Any] | None:
     if not node_id:
         return None
     p = props or {}
@@ -274,9 +272,7 @@ def _coalesce_decision(
     }
 
 
-def _coalesce_outcome(
-    node_id: str | None, props: dict[str, Any] | None
-) -> dict[str, Any] | None:
+def _coalesce_outcome(node_id: str | None, props: dict[str, Any] | None) -> dict[str, Any] | None:
     if not node_id:
         return None
     p = props or {}
@@ -367,9 +363,7 @@ def record_decision_for_hitl(
         "decided_at": now.isoformat(),
     }
     if decision == "approve":
-        properties["outcome_due_at"] = (
-            now + timedelta(days=OUTCOME_MEASUREMENT_DAYS)
-        ).isoformat()
+        properties["outcome_due_at"] = (now + timedelta(days=OUTCOME_MEASUREMENT_DAYS)).isoformat()
 
     decision_node = create_node(
         "Decision",
@@ -670,9 +664,7 @@ def measure_outcome_for_decision(
     observed_rate = _measure_rate(cfg, component, period_start, period_end)
 
     # Baseline rate from the Insight's prior period (the "healthy" reference).
-    baseline_start = insight_props.get("period_prior_start") or insight_props.get(
-        "period_start"
-    )
+    baseline_start = insight_props.get("period_prior_start") or insight_props.get("period_start")
     baseline_end = insight_props.get("period_prior_end") or insight_props.get("period_end")
     baseline_rate: float | None = None
     if baseline_start and baseline_end:
@@ -755,7 +747,4 @@ def find_decisions_due_for_outcome(*, limit: int = 50) -> list[dict[str, Any]]:
     )
     with engine.connect() as conn:
         rows = conn.execute(sql, {"limit": limit}).fetchall()
-    return [
-        {"decision_id": str(r[0]), "properties": (r[1] or {})}
-        for r in rows
-    ]
+    return [{"decision_id": str(r[0]), "properties": (r[1] or {})} for r in rows]

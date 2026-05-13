@@ -349,9 +349,9 @@ def detect_shopify_orders_by_channel(
         rows=len(df_now) + len(df_prior),
     )
 
-    merged = df_now.merge(
-        df_prior, on="channel", suffixes=("_now", "_prior"), how="outer"
-    ).fillna(0)
+    merged = df_now.merge(df_prior, on="channel", suffixes=("_now", "_prior"), how="outer").fillna(
+        0
+    )
 
     insights: list[Insight] = []
     for _, r in merged.iterrows():

@@ -159,9 +159,7 @@ def _upsert_order(order: dict[str, Any]) -> None:
         "subtotal_price": _to_decimal(order.get("subtotal_price")),
         "total_discounts": _to_decimal(order.get("total_discounts")),
         "total_shipping": _to_decimal(
-            (order.get("total_shipping_price_set") or {})
-            .get("shop_money", {})
-            .get("amount")
+            (order.get("total_shipping_price_set") or {}).get("shop_money", {}).get("amount")
         ),
         "total_tax": _to_decimal(order.get("total_tax")),
         "currency": order.get("currency"),

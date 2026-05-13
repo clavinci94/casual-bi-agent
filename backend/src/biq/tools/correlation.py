@@ -197,9 +197,7 @@ def _align(internal: pd.DataFrame, external: pd.DataFrame) -> pd.DataFrame:
     if internal.empty or external.empty:
         return pd.DataFrame(columns=["date", "internal", "external"])
 
-    ext_step = (
-        external["date"].sort_values().diff().median().days if len(external) > 1 else 1
-    )
+    ext_step = external["date"].sort_values().diff().median().days if len(external) > 1 else 1
 
     if ext_step >= 4:
         # External is weekly-ish. Aggregate internal up to weekly means

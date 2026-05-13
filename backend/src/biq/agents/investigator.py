@@ -441,9 +441,7 @@ def _numeric_columns(rows: list[dict[str, Any]]) -> list[str]:
     return cols
 
 
-def _numeric_ranges(
-    rows: list[dict[str, Any]], cols: list[str]
-) -> dict[str, dict[str, float]]:
+def _numeric_ranges(rows: list[dict[str, Any]], cols: list[str]) -> dict[str, dict[str, float]]:
     """min/max/sum per numeric column — lets the judge verify any quoted figure
     by checking whether it falls inside the bracket the data actually contains."""
     out: dict[str, dict[str, float]] = {}
@@ -502,8 +500,7 @@ def _summarize_tool_result(tool_name: str, result: Any) -> dict[str, Any] | None
             "n_decided": result.get("n_decided"),
             "n_measured": result.get("n_measured"),
             "insight_titles": [
-                _truncate((i.get("insight") or {}).get("title"), 120)
-                for i in insights[:5]
+                _truncate((i.get("insight") or {}).get("title"), 120) for i in insights[:5]
             ],
         }
     elif tool_name == "causal_impact_conversion":

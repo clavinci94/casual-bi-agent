@@ -52,9 +52,9 @@ DEFAULT_MODEL = "claude-sonnet-4-6"
 # Symbols a Swiss Shopify-Plus shop should care about — local indices
 # plus the FX crosses that move their cross-border margins.
 _DACH_SYMBOLS = [
-    "^SSMI",     # SMI (Switzerland)
-    "^GDAXI",    # DAX (Germany)
-    "^ATX",      # ATX (Austria)
+    "^SSMI",  # SMI (Switzerland)
+    "^GDAXI",  # DAX (Germany)
+    "^ATX",  # ATX (Austria)
     "EURCHF=X",  # cost of selling into the EUR zone from CH
     "USDCHF=X",  # USD-denominated suppliers / Shopify billing
     "CHFEUR=X",  # CH-buyer-facing prices in EUR shops
@@ -195,17 +195,20 @@ def _gather_signals(ctx: Any) -> dict[str, Any]:
     signals: dict[str, Any] = {}
 
     fetchers: list[tuple[str, str, Any]] = [
-        ("markets", "market_snapshot",
-         lambda: market_snapshot(symbols=_DACH_SYMBOLS, period="5d")),
+        ("markets", "market_snapshot", lambda: market_snapshot(symbols=_DACH_SYMBOLS, period="5d")),
         ("shopify_status", "shopify_status", lambda: shopify_status()),
-        ("commerce_calendar", "commerce_calendar",
-         lambda: commerce_calendar(country="CH", limit=6)),
-        ("news", "news_search",
-         lambda: news_search(max_results=12, region="dach")),
-        ("top_categories", "shopify.top_product_categories",
-         lambda: shopify_tools.top_product_categories(limit=5, window_days=90)),
-        ("kpis", "kpi.shopify_orders_daily",
-         lambda: _shopify_kpi_snapshot(days=14)),
+        (
+            "commerce_calendar",
+            "commerce_calendar",
+            lambda: commerce_calendar(country="CH", limit=6),
+        ),
+        ("news", "news_search", lambda: news_search(max_results=12, region="dach")),
+        (
+            "top_categories",
+            "shopify.top_product_categories",
+            lambda: shopify_tools.top_product_categories(limit=5, window_days=90),
+        ),
+        ("kpis", "kpi.shopify_orders_daily", lambda: _shopify_kpi_snapshot(days=14)),
     ]
 
     for key, tool_name, fetch in fetchers:
@@ -232,8 +235,7 @@ def _gather_signals(ctx: Any) -> dict[str, Any]:
         c["product_type"].lower()
         for c in (signals.get("top_categories", {}).get("categories") or [])
     ][:5]
-    step_id = log_step(ctx, "briefing", "fetch::trends",
-                      input={"keywords": keywords})
+    step_id = log_step(ctx, "briefing", "fetch::trends", input={"keywords": keywords})
     try:
         trends = (
             trends_query(keywords=keywords, geo="CH", timeframe="today 3-m")
@@ -319,9 +321,13 @@ def _compact_signals_for_prompt(signals: dict[str, Any]) -> dict[str, Any]:
     compact["commerce_calendar"] = {
         "today": c.get("today"),
         "events": [
-            {"name": e.get("name"), "date": e.get("date"),
-             "days_away": e.get("days_away"), "kind": e.get("kind"),
-             "note": e.get("note")}
+            {
+                "name": e.get("name"),
+                "date": e.get("date"),
+                "days_away": e.get("days_away"),
+                "kind": e.get("kind"),
+                "note": e.get("note"),
+            }
             for e in (c.get("events") or [])
         ],
     }
@@ -476,9 +482,7 @@ def generate_briefing(
             return cached
 
     if not settings.anthropic_api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Add it to .env to run the briefing."
-        )
+        raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env to run the briefing.")
 
     client = Anthropic(api_key=settings.anthropic_api_key)
 
@@ -510,8 +514,9 @@ def generate_briefing(
         resp = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=[{"type": "text", "text": SYSTEM_PROMPT,
-                     "cache_control": {"type": "ephemeral"}}],
+            system=[
+                {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}
+            ],
             tools=[SUBMIT_TOOL],
             tool_choice={"type": "tool", "name": "submit_briefing"},
             messages=[
@@ -520,8 +525,7 @@ def generate_briefing(
                     "content": (
                         "Hier sind die Daten für heute. Folgen Sie den Regeln "
                         "im System-Prompt strikt. Geben Sie das Briefing "
-                        "ausschliesslich via `submit_briefing` aus.\n\n"
-                        + user_payload
+                        "ausschliesslich via `submit_briefing` aus.\n\n" + user_payload
                     ),
                 }
             ],

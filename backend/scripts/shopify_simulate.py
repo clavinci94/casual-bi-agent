@@ -165,11 +165,7 @@ def _generate_orders(
             customer = rng.choice(expanded_customers)
             # Mobile-Bestellungen werden in der Anomalie-Periode halbiert
             channel = rng.choices(CHANNELS, weights=CHANNEL_WEIGHTS)[0]
-            if (
-                anomaly_window
-                and channel in ("ios_app", "android_app")
-                and rng.random() < 0.65
-            ):
+            if anomaly_window and channel in ("ios_app", "android_app") and rng.random() < 0.65:
                 # 65 % der Mobile-Bestellungen verschwinden in der Anomalie-Periode
                 # (sichtbare Anomalie >> Detektor-Threshold 20 %)
                 continue
@@ -402,7 +398,9 @@ def main() -> None:
         print("→ Lösche bestehende synth-Daten (sim_*) …")
         _wipe_simulated_rows()
 
-    print(f"→ Generiere Katalog ({sum(len(lines) for _, lines in CATEGORIES) * 10}-15 Varianten/Linie) …")
+    print(
+        f"→ Generiere Katalog ({sum(len(lines) for _, lines in CATEGORIES) * 10}-15 Varianten/Linie) …"
+    )
     products = _generate_products(rng)
     _insert_products(products)
     _log_sync("products", len(products))
@@ -414,7 +412,9 @@ def main() -> None:
     _log_sync("customers", len(customers))
     print(f"   {len(customers)} Kunden eingefügt")
 
-    print(f"→ Generiere Bestellungen über {args.days} Tage (inkl. Mobile-Anomalie letzte 14 Tage) …")
+    print(
+        f"→ Generiere Bestellungen über {args.days} Tage (inkl. Mobile-Anomalie letzte 14 Tage) …"
+    )
     orders = _generate_orders(rng, products, customers, args.days)
     _insert_orders(orders)
     _log_sync("orders", len(orders))
