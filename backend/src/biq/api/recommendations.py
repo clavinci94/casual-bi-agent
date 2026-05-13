@@ -232,9 +232,7 @@ def bulk_decision(payload: BulkDecisionRequest) -> BulkDecisionResponse:
             pass
 
         decided.append(
-            DecisionResponse(
-                rec_id=rec_id, decision=payload.decision, status=new_status
-            )
+            DecisionResponse(rec_id=rec_id, decision=payload.decision, status=new_status)
         )
 
     return BulkDecisionResponse(decided=decided, skipped=skipped)
