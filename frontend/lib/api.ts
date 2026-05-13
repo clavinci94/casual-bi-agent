@@ -101,6 +101,19 @@ export const api = {
   },
   getRecommendation: (rec_id: string) =>
     request<Recommendation>(`/api/recommendations/${rec_id}`),
+  bulkDecision: (payload: {
+    rec_ids: string[];
+    decision: "approve" | "reject";
+    approver: string;
+    comment?: string;
+  }) =>
+    request<{
+      decided: DecisionResponse[];
+      skipped: { rec_id: string; reason: "not_found" | "not_pending" | string }[];
+    }>("/api/recommendations/bulk-decision", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   decideRecommendation: (
     rec_id: string,
     payload: {

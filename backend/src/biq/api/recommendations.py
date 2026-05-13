@@ -147,3 +147,94 @@ def record_decision(rec_id: str, payload: DecisionRequest) -> DecisionResponse:
         pass
 
     return DecisionResponse(rec_id=rec_id, decision=payload.decision, status=new_status)
+
+
+# --- Bulk decision -----------------------------------------------------
+
+
+class BulkDecisionRequest(BaseModel):
+    """Approve or reject several pending recommendations in one call.
+    Same approver + comment apply to every rec_id."""
+
+    rec_ids: list[str] = Field(min_length=1, max_length=100)
+    decision: Literal["approve", "reject"]
+    approver: str = Field(min_length=1, max_length=200)
+    comment: str | None = None
+
+
+class BulkDecisionResponse(BaseModel):
+    decided: list[DecisionResponse]
+    skipped: list[dict[str, str]]  # [{"rec_id": "...", "reason": "not_pending"|"not_found"}]
+
+
+@router.post("/bulk-decision", response_model=BulkDecisionResponse)
+def bulk_decision(payload: BulkDecisionRequest) -> BulkDecisionResponse:
+    """Apply the same approve/reject decision to multiple recommendations.
+
+    Only `pending` recommendations are touched — already-decided ones are
+    listed in the `skipped` array with a reason, so the UI can warn the
+    operator that a row in their selection was already handled by someone
+    else. Atomic per-rec but not as a whole batch: if one row fails for
+    a non-existence reason, the rest still get decided.
+    """
+    new_status = "approved" if payload.decision == "approve" else "rejected"
+    decided: list[DecisionResponse] = []
+    skipped: list[dict[str, str]] = []
+
+    import uuid as _uuid
+
+    for rec_id in payload.rec_ids:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT status FROM audit.recommendations WHERE rec_id = :id"),
+                {"id": rec_id},
+            ).first()
+            if not row:
+                skipped.append({"rec_id": rec_id, "reason": "not_found"})
+                continue
+            if row[0] != "pending":
+                skipped.append({"rec_id": rec_id, "reason": "not_pending"})
+                continue
+
+            hitl_id = str(_uuid.uuid4())
+            conn.execute(
+                text(
+                    "INSERT INTO audit.hitl_decisions "
+                    "(decision_id, rec_id, approver, decision, comment) "
+                    "VALUES (:did, :rec, :approver, :dec, :comment)"
+                ),
+                {
+                    "did": hitl_id,
+                    "rec": rec_id,
+                    "approver": payload.approver,
+                    "dec": payload.decision,
+                    "comment": payload.comment,
+                },
+            )
+            conn.execute(
+                text("UPDATE audit.recommendations SET status = :s WHERE rec_id = :r"),
+                {"s": new_status, "r": rec_id},
+            )
+
+        # KG mirror — best effort, outside the txn so a KG outage can't
+        # block the audit write.
+        try:
+            from biq.tools import kg as kg_tools
+
+            kg_tools.record_decision_for_hitl(
+                rec_id=rec_id,
+                hitl_decision_id=hitl_id,
+                decision=payload.decision,
+                approver=payload.approver,
+                comment=payload.comment,
+            )
+        except Exception:
+            pass
+
+        decided.append(
+            DecisionResponse(
+                rec_id=rec_id, decision=payload.decision, status=new_status
+            )
+        )
+
+    return BulkDecisionResponse(decided=decided, skipped=skipped)
