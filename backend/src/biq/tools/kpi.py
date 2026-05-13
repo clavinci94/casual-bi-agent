@@ -22,6 +22,7 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 ALLOWED_VIEWS: set[str] = {
+    # Olist-Pfad (Demo-Daten 2018)
     "conversion_rate_daily",
     "aov_daily",
     "gross_margin_weekly",
@@ -30,10 +31,21 @@ ALLOWED_VIEWS: set[str] = {
     "refund_rate",
     "repeat_purchase_rate",
     "churn_30d",
+    # Shopify-Pfad (Live-Daten oder synthetischer Plus-Volumen-Generator)
+    "shopify_orders_daily",
+    "shopify_aov_daily",
+    "shopify_refund_rate_weekly",
+    "shopify_repeat_rate_weekly",
 }
 
 # Views whose primary date column is `day` (rest use `week`).
-DAY_VIEWS: set[str] = {"conversion_rate_daily", "aov_daily", "delivery_time_p95"}
+DAY_VIEWS: set[str] = {
+    "conversion_rate_daily",
+    "aov_daily",
+    "delivery_time_p95",
+    "shopify_orders_daily",
+    "shopify_aov_daily",
+}
 
 
 def _date_col(view: str) -> str:

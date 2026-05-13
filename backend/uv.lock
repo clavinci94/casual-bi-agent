@@ -172,6 +172,7 @@ source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "anthropic" },
+    { name = "cachetools" },
     { name = "fastapi", extra = ["standard"] },
     { name = "feedparser" },
     { name = "langfuse" },
@@ -181,6 +182,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "python-dotenv" },
     { name = "python-json-logger" },
     { name = "pytrends" },
@@ -206,6 +208,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "anthropic", specifier = ">=0.40" },
+    { name = "cachetools", specifier = ">=5.3" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.118" },
     { name = "feedparser", specifier = ">=6.0.12" },
     { name = "langfuse", specifier = ">=4.6.1" },
@@ -215,6 +218,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "python-json-logger", specifier = ">=2.0" },
     { name = "pytrends", specifier = ">=4.9.2" },

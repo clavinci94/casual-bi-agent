@@ -243,4 +243,20 @@ def log_recommendation(
         # KG failures must never block the audit write
         pass
 
+    # Slack alert — only high-risk so we don't spam the channel. Failures
+    # in the integration must never propagate to the audit write.
+    if risk_level == "high":
+        try:
+            from biq.integrations import slack
+
+            slack.notify_recommendation(
+                rec_id=rec_id,
+                title=title,
+                body=body,
+                risk_level=risk_level,
+                confidence=confidence,
+            )
+        except Exception:
+            pass
+
     return rec_id

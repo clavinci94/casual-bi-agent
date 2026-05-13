@@ -235,6 +235,68 @@ export const KPI_META: Record<string, KpiMeta> = {
       { field: "region", label: "Nach Region" },
     ],
   },
+
+  // ----- Shopify (Live oder simulierter Plus-Shop) -----
+  shopify_orders_daily: {
+    valueField: "orders_completed",
+    valueScale: 1,
+    unit: "count",
+    title: "Tagesbestellungen (Shopify)",
+    subtitle: "Anzahl abgeschlossener Bestellungen pro Tag",
+    description:
+      "Bestellvolumen aus dem angebundenen Shopify-(Plus-)Shop. Zeigt die operative Last und reagiert sehr direkt auf Marketing-Aktivität sowie technische Probleme.",
+    owner: "Revenue",
+    icon: "cart",
+    dateField: "day",
+    higherIsBetter: true,
+    defaultRangeDays: 60,
+    groupOptions: [{ field: "channel", label: "Nach Kanal" }],
+  },
+  shopify_aov_daily: {
+    valueField: "aov_chf",
+    valueScale: 1,
+    unit: "currency_chf",
+    title: "Bestellwert (Shopify)",
+    subtitle: "Durchschnittlicher Auftragswert pro Tag",
+    description:
+      "Mittlerer Umsatz pro Bestellung aus dem Shopify-Shop, in Shop-Original-Währung. Eine sinkende Kennzahl bei stabilen Bestellzahlen deutet auf Rabattaktionen oder verschobene Sortimente hin.",
+    owner: "Revenue",
+    icon: "wallet",
+    dateField: "day",
+    higherIsBetter: true,
+    defaultRangeDays: 60,
+    groupOptions: [{ field: "channel", label: "Nach Kanal" }],
+  },
+  shopify_refund_rate_weekly: {
+    valueField: "refund_rate_pct",
+    valueScale: 0.01,
+    unit: "percent",
+    title: "Rückgaben (Shopify)",
+    subtitle: "Anteil stornierter oder retournierter Shopify-Bestellungen",
+    description:
+      "Wochenraten der Rückgabe-/Storno-Quote. Eine plötzliche Steigerung deutet auf Qualitätsprobleme, falsche Produktbeschreibungen oder Liefer-Engpässe hin.",
+    owner: "Quality",
+    icon: "undo",
+    dateField: "week",
+    higherIsBetter: false,
+    defaultRangeDays: 90,
+    groupOptions: [{ field: "channel", label: "Nach Kanal" }],
+  },
+  shopify_repeat_rate_weekly: {
+    valueField: "repeat_rate_pct",
+    valueScale: 0.01,
+    unit: "percent",
+    title: "Wiederkäufer (Shopify)",
+    subtitle: "Anteil Neukunden mit zweiter Bestellung in 90 Tagen",
+    description:
+      "Kohortenbetrachtung: Wie viel Prozent der in einer Woche neu gewonnenen Kunden bestellen innerhalb von 90 Tagen ein zweites Mal? Der einzelne wichtigste Frühindikator für Customer Lifetime Value.",
+    owner: "Retention",
+    icon: "repeat",
+    dateField: "week",
+    higherIsBetter: true,
+    defaultRangeDays: 180,
+    groupOptions: [],
+  },
 };
 
 export const OWNER_ORDER: KpiOwner[] = [

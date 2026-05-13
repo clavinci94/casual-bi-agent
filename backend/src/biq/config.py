@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     shopify_admin_api_token: str | None = None  # shpat_...
     shopify_api_version: str = "2025-01"
 
+    # Auth mode for /api/* — gates how the FastAPI layer authenticates
+    # callers. See docs/sso-setup.md for the SSO flow.
+    #   "api_key" (default)  — X-API-Key header against BIQ_API_KEY
+    #   "bearer_jwt"          — Authorization: Bearer <jwt>, validated
+    #                           via JWKS at BIQ_JWT_JWKS_URL
+    #   "disabled"            — no auth (only for local dev)
+    biq_auth_mode: str = "api_key"
+    biq_jwt_jwks_url: str | None = None  # e.g. https://<tenant>.auth0.com/.well-known/jwks.json
+    biq_jwt_issuer: str | None = None  # e.g. https://<tenant>.auth0.com/
+    biq_jwt_audience: str | None = None  # API identifier registered with the IdP
+
     # When set, the HTTP API requires X-API-Key: <value> on /api/*.
     # Unset = open (dev mode).
     biq_api_key: str | None = None

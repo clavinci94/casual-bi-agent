@@ -155,6 +155,14 @@ KPI_DE = {
     "conversion_rate": "Conversion Rate",
     "aov": "Bestellwert",
     "gross_margin": "Bruttomarge",
+    "shopify_orders": "Tagesbestellungen",
+}
+
+CHANNEL_DE = {
+    "mobile": "den Mobile-Kanälen",
+    "desktop": "dem Desktop-Kanal",
+    "pos": "dem POS-Kanal",
+    "other": "den sonstigen Kanälen",
 }
 
 
@@ -197,11 +205,12 @@ def narrate(insight: Insight) -> tuple[str, str]:
       Vorschlag. A manager can read just the title and act.
     """
     kpi_label = KPI_DE.get(insight.kpi, insight.kpi)
-    segment_label = (
-        DEVICE_DE.get(insight.value, insight.value.capitalize())
-        if insight.dimension == "device"
-        else f"{insight.dimension}={insight.value}"
-    )
+    if insight.dimension == "device":
+        segment_label = DEVICE_DE.get(insight.value, insight.value.capitalize())
+    elif insight.dimension == "channel":
+        segment_label = CHANNEL_DE.get(insight.value, f"Kanal {insight.value}")
+    else:
+        segment_label = f"{insight.dimension}={insight.value}"
 
     direction = "gefallen" if insight.relative_change < 0 else "gestiegen"
     rel_pct = abs(insight.relative_change) * 100
@@ -275,6 +284,100 @@ def _pending_duplicate_exists(
     return row is not None
 
 
+def _latest_shopify_day() -> date | None:
+    with engine.connect() as conn:
+        return conn.execute(
+            text("SELECT MAX(day) FROM kpi.shopify_orders_daily")
+        ).scalar_one_or_none()
+
+
+def detect_shopify_orders_by_channel(
+    reference_day: date,
+    step_id: str,
+    window_days: int = 14,
+    threshold: float = 0.20,
+    min_orders: int = 30,
+) -> list[Insight]:
+    """Anomalie-Erkennung über die täglichen Shopify-Bestellungen pro
+    Channel. Vergleicht das letzte 14-Tages-Fenster mit dem davor.
+
+    Im Gegensatz zur Olist-Conversion-Erkennung arbeitet diese Variante
+    mit absoluten Bestellzahlen, nicht mit einem Verhältnis — entsprechend
+    läuft sie über Tages-Mittelwerte (Bestellungen/Tag) damit
+    unterschiedlich lange Fenster vergleichbar bleiben.
+    """
+    now_end = reference_day
+    now_start = now_end - timedelta(days=window_days)
+    prior_end = now_start
+    prior_start = prior_end - timedelta(days=window_days)
+
+    sql = text(
+        "SELECT channel, "
+        "       SUM(orders_completed)::float AS orders, "
+        "       SUM(revenue)::float           AS revenue "
+        "FROM kpi.shopify_orders_daily "
+        "WHERE day >= :start AND day < :end "
+        "GROUP BY channel"
+    )
+
+    with engine.connect() as conn:
+        import pandas as _pd
+
+        df_now = _pd.read_sql(sql, conn, params={"start": now_start, "end": now_end})
+        df_prior = _pd.read_sql(sql, conn, params={"start": prior_start, "end": prior_end})
+
+    log_tool_call(
+        step_id,
+        "sql.kpi.shopify_orders_daily",
+        params={
+            "window_days": window_days,
+            "by": "channel",
+            "now": [str(now_start), str(now_end)],
+            "prior": [str(prior_start), str(prior_end)],
+        },
+        result_summary={"rows_now": len(df_now), "rows_prior": len(df_prior)},
+        rows=len(df_now) + len(df_prior),
+    )
+
+    merged = df_now.merge(
+        df_prior, on="channel", suffixes=("_now", "_prior"), how="outer"
+    ).fillna(0)
+
+    insights: list[Insight] = []
+    for _, r in merged.iterrows():
+        orders_now = float(r["orders_now"])
+        orders_prior = float(r["orders_prior"])
+        if orders_now < min_orders and orders_prior < min_orders:
+            continue
+        if orders_prior == 0:
+            continue
+        # Bestellungen pro Tag, damit unterschiedlich lange Fenster
+        # äquivalent verglichen werden können (hier identisch, aber so
+        # explizit in der Datenstruktur).
+        per_day_now = orders_now / window_days
+        per_day_prior = orders_prior / window_days
+        rel = (per_day_now - per_day_prior) / per_day_prior
+        if abs(rel) < threshold:
+            continue
+        insights.append(
+            Insight(
+                kpi="shopify_orders",
+                dimension="channel",
+                value=str(r["channel"]),
+                period_now=(now_start, now_end),
+                period_prior=(prior_start, prior_end),
+                metric_now=per_day_now,
+                metric_prior=per_day_prior,
+                relative_change=rel,
+                sessions_now=int(orders_now),
+                sessions_prior=int(orders_prior),
+                severity=_severity(rel, int(min(orders_now, orders_prior))),
+            )
+        )
+
+    return insights
+
+
 def run(reference_day: date | None = None) -> dict[str, Any]:
     """Single end-to-end scan. Returns insights + recommendation ids.
 
@@ -300,6 +403,73 @@ def run(reference_day: date | None = None) -> dict[str, Any]:
             return {"run_id": ctx.run_id, "reference_day": None, "insights": []}
 
         insights = detect_by_device(ref, step_id=step_id)
+        finish_step(step_id, {"n_insights": len(insights), "reference_day": str(ref)})
+
+        rec_ids: list[str] = []
+        skipped = 0
+        for ins in insights:
+            component = f"{ins.dimension}={ins.value}"
+            period_start, period_end = str(ins.period_now[0]), str(ins.period_now[1])
+
+            if _pending_duplicate_exists(
+                component=component,
+                period_start=period_start,
+                period_end=period_end,
+                kpi=ins.kpi,
+            ):
+                skipped += 1
+                continue
+
+            title, body = narrate(ins)
+            rec_ids.append(
+                log_recommendation(
+                    run_id=ctx.run_id,
+                    title=title,
+                    body=body,
+                    confidence=0.6 if ins.severity == "high" else 0.4,
+                    action_type="read_only",
+                    risk_level=ins.severity,
+                    component=component,
+                    period=(period_start, period_end),
+                    period_prior=(str(ins.period_prior[0]), str(ins.period_prior[1])),
+                    kg_extra={"kpi": ins.kpi, "relative_change": ins.relative_change},
+                )
+            )
+
+        return {
+            "run_id": ctx.run_id,
+            "reference_day": str(ref),
+            "insights": [i.to_dict() for i in insights],
+            "recommendation_ids": rec_ids,
+            "skipped_duplicates": skipped,
+        }
+
+
+def run_shopify(reference_day: date | None = None) -> dict[str, Any]:
+    """Anomalie-Scan über Shopify-Tagesbestellungen pro Channel.
+
+    Strukturell parallel zu run() — gleicher Dedup-Schutz, gleiche
+    deutsche Manager-Narration, eigener KPI-Name shopify_orders im
+    Knowledge Graph damit Olist- und Shopify-Befunde nicht vermischt
+    werden.
+    """
+    with run_context(
+        trigger="cli",
+        prompt="Routine-Überwachung der Shopify-Bestellungen pro Kanal",
+    ) as ctx:
+        step_id = log_step(
+            ctx,
+            agent_name="anomaly_detector",
+            action="scan_shopify_by_channel",
+            input={"reference_day": str(reference_day)},
+        )
+
+        ref = reference_day or _latest_shopify_day()
+        if ref is None:
+            finish_step(step_id, {"error": "no data in kpi.shopify_orders_daily"})
+            return {"run_id": ctx.run_id, "reference_day": None, "insights": []}
+
+        insights = detect_shopify_orders_by_channel(ref, step_id=step_id)
         finish_step(step_id, {"n_insights": len(insights), "reference_day": str(ref)})
 
         rec_ids: list[str] = []

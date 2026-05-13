@@ -1,31 +1,136 @@
-"""API-key authentication.
+"""Pluggable authentication for /api/*.
 
-When `BIQ_API_KEY` is set in the environment, requests to /api/* must
-include `X-API-Key: <value>`. When unset (dev mode), auth is bypassed so
-local development and tests don't need an extra step.
+Three modes, switched by BIQ_AUTH_MODE in .env:
 
-This is the minimum that lets us deploy to Render with public URLs without
-exposing the agent loop to the open internet. Swap for OAuth/SSO when a
-real auth provider is in scope.
+  api_key      — X-API-Key header == BIQ_API_KEY (current default)
+  bearer_jwt   — Authorization: Bearer <jwt>, validated via JWKS
+  disabled     — no auth at all (local dev only)
+
+The bearer_jwt path is the SSO scaffolding. Auth0, Azure AD, Okta,
+Keycloak — anything with a standard OIDC discovery endpoint works.
+JWKS keys are cached in-memory with a short TTL so we don't hit the
+IdP on every request.
 """
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Security
-from fastapi.security import APIKeyHeader
+import logging
+from typing import Annotated, Any
+
+from fastapi import HTTPException, Request, Security
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
 from biq.config import settings
 
+_logger = logging.getLogger(__name__)
+
 _API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+_BEARER = HTTPBearer(auto_error=False)
 
 
-def require_api_key(api_key: str | None = Security(_API_KEY_HEADER)) -> None:
-    """FastAPI dependency: enforce X-API-Key when BIQ_API_KEY is configured."""
+# --- API-key path (legacy / machine-to-machine) -----------------------
+
+
+def _require_api_key(api_key: str | None) -> None:
     expected = settings.biq_api_key
     if not expected:
-        return  # auth disabled
+        return
     if api_key != expected:
+        raise HTTPException(status_code=401, detail="missing or invalid X-API-Key")
+
+
+# --- Bearer-JWT path (SSO) --------------------------------------------
+
+_JWKS_CACHE: dict[str, Any] = {"keys": None, "fetched_at": 0.0}
+_JWKS_TTL_SECONDS = 3600.0
+
+
+def _load_jwks() -> dict[str, Any]:
+    """Return a cached JWKS document; refresh after TTL."""
+    import time
+
+    import httpx
+
+    now = time.time()
+    if (
+        _JWKS_CACHE["keys"] is not None
+        and (now - _JWKS_CACHE["fetched_at"]) < _JWKS_TTL_SECONDS
+    ):
+        return _JWKS_CACHE["keys"]
+
+    url = settings.biq_jwt_jwks_url
+    if not url:
         raise HTTPException(
-            status_code=401,
-            detail="missing or invalid X-API-Key",
+            status_code=500,
+            detail="BIQ_AUTH_MODE=bearer_jwt requires BIQ_JWT_JWKS_URL",
         )
+    with httpx.Client(timeout=10.0) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+        keys = resp.json()
+    _JWKS_CACHE["keys"] = keys
+    _JWKS_CACHE["fetched_at"] = now
+    return keys
+
+
+def _require_bearer(token: str | None) -> dict[str, Any]:
+    if not token:
+        raise HTTPException(status_code=401, detail="missing Bearer token")
+    try:
+        import jwt
+        from jwt import PyJWKClient
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="pyjwt[crypto] not installed — `uv add 'pyjwt[crypto]'`",
+        ) from exc
+
+    if not settings.biq_jwt_jwks_url:
+        raise HTTPException(
+            status_code=500,
+            detail="BIQ_AUTH_MODE=bearer_jwt requires BIQ_JWT_JWKS_URL",
+        )
+
+    jwks_client = PyJWKClient(settings.biq_jwt_jwks_url, cache_keys=True, lifespan=3600)
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256", "ES256"],
+            audience=settings.biq_jwt_audience,
+            issuer=settings.biq_jwt_issuer,
+            options={"require": ["exp", "iss"]},
+        )
+        return claims
+    except jwt.PyJWTError as exc:
+        _logger.warning("JWT validation failed: %s", exc)
+        raise HTTPException(status_code=401, detail=f"invalid token: {exc}") from exc
+
+
+# --- The dependency the router uses -----------------------------------
+
+
+def require_api_key(
+    request: Request,
+    api_key: Annotated[str | None, Security(_API_KEY_HEADER)] = None,
+    bearer: Annotated[
+        HTTPAuthorizationCredentials | None, Security(_BEARER)
+    ] = None,
+) -> None:
+    """FastAPI dependency. Picks the auth mode from settings and enforces
+    accordingly. Name kept as `require_api_key` for back-compat with
+    existing router wiring.
+    """
+    mode = (settings.biq_auth_mode or "api_key").lower()
+    if mode == "disabled":
+        return
+    if mode == "bearer_jwt":
+        token = bearer.credentials if bearer is not None else None
+        claims = _require_bearer(token)
+        # Stash the verified claims on the request so route handlers can
+        # read `request.state.user` if they want to.
+        request.state.user = claims
+        return
+    # default: api_key
+    _require_api_key(api_key)
