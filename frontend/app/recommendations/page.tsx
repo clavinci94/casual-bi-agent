@@ -136,7 +136,7 @@ export default function RecommendationsIndex() {
         </Card>
       ) : (
         <>
-          <div className="text-sm text-[var(--color-muted)] -mb-2">
+          <div className="text-sm text-[var(--color-muted)] mb-[0.2cm]">
             {data.length} {data.length === 1 ? "Empfehlung" : "Empfehlungen"}
             {selectableIds.length > 0
               ? ` · ${selectableIds.length} davon offen`

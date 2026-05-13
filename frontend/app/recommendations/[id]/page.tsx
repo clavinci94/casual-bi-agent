@@ -138,10 +138,8 @@ export default function RecommendationDetail() {
       <MutedLink href="/">← Zurück zum Dashboard</MutedLink>
 
       <header>
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-          Empfehlung
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1 leading-tight">
+        <div className="label-micro">Empfehlung</div>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mt-1.5 leading-tight">
           {data.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -323,7 +321,7 @@ export default function RecommendationDetail() {
                   type="button"
                   disabled={submitting}
                   onClick={() => decide("approve")}
-                  className="px-5 py-2 rounded-lg bg-[var(--color-success)] text-white font-medium disabled:opacity-50 hover:opacity-90"
+                  className="px-5 py-2 rounded-full bg-[var(--color-success)] text-white text-sm font-medium disabled:opacity-50 hover:opacity-90"
                 >
                   Freigeben
                 </button>
@@ -331,7 +329,7 @@ export default function RecommendationDetail() {
                   type="button"
                   disabled={submitting}
                   onClick={() => decide("reject")}
-                  className="px-5 py-2 rounded-lg bg-[var(--color-danger)] text-white font-medium disabled:opacity-50 hover:opacity-90"
+                  className="px-5 py-2 rounded-full bg-[var(--color-danger)] text-white text-sm font-medium disabled:opacity-50 hover:opacity-90"
                 >
                   Ablehnen
                 </button>

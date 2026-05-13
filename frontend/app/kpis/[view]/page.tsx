@@ -108,7 +108,10 @@ export default function KpiDetail() {
   if (!meta) {
     return (
       <div className="space-y-4 max-w-2xl">
-        <h1 className="text-2xl font-semibold tracking-tight mono">{view}</h1>
+        <div className="label-micro">Unbekannte Kennzahl</div>
+        <h1 className="text-3xl font-semibold tracking-tight mono mt-1.5">
+          {view}
+        </h1>
         <p className="text-sm text-[var(--color-muted)]">
           Für diese Kennzahl ist noch keine Klartext-Beschreibung
           hinterlegt. Eintrag in{" "}
@@ -137,13 +140,11 @@ export default function KpiDetail() {
 
       {/* Headline */}
       <header>
-        <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-          {OWNER_LABELS[meta.owner]}
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight mt-0.5">
+        <div className="label-micro">{OWNER_LABELS[meta.owner]}</div>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mt-1.5 leading-tight">
           {meta.title}
         </h1>
-        <p className="text-base text-[var(--color-muted)] mt-2 max-w-2xl leading-relaxed">
+        <p className="text-base text-[var(--color-muted)] mt-2.5 max-w-2xl leading-relaxed">
           {meta.description}
         </p>
       </header>

@@ -88,7 +88,7 @@ export default function InvestigatePage() {
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90 disabled:opacity-50"
+              className="px-5 py-2 rounded-full bg-[var(--color-accent)] text-[var(--color-accent-fg)] text-sm font-medium hover:opacity-90 disabled:opacity-50"
             >
               {submitting ? "Wird gestartet …" : "Untersuchung starten"}
             </button>

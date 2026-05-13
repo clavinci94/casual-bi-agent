@@ -156,10 +156,8 @@ export default function RunDetailPage() {
 
       {/* Header */}
       <header>
-        <div className="text-xs uppercase tracking-wider text-[var(--color-muted)] font-medium">
-          Analyse
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1 leading-tight">
+        <div className="label-micro">Analyse</div>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mt-1.5 leading-tight">
           {data.run.prompt ?? "(ohne Titel)"}
         </h1>
         <div className="flex flex-wrap items-center gap-2 mt-3">
