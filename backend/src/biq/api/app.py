@@ -22,8 +22,10 @@ from biq.api import (
     kpi,
     recommendations,
     runs,
-    settings as settings_routes,
     shopify,
+)
+from biq.api import (
+    settings as settings_routes,
 )
 from biq.api.auth import require_api_key
 from biq.api.middleware import RequestIDMiddleware

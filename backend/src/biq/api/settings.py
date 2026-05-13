@@ -6,8 +6,6 @@ needs to pause a cost-incurring background job without redeploying.
 
 from __future__ import annotations
 
-from typing import Annotated
-
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
