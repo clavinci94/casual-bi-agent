@@ -310,8 +310,10 @@ export type BriefingPayload = {
 };
 
 export type BriefingResponse = {
-  run_id: string;
+  run_id: string | null;
   generated_at: string | null;
   briefing: BriefingPayload;
   from_cache: boolean;
+  /** Set when the manager has paused the daily briefing via /settings. */
+  deactivated?: boolean;
 };

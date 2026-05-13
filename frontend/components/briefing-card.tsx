@@ -104,7 +104,7 @@ export function BriefingCard() {
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-7 sm:p-8 bg-aurora" size="lg">
       <Header
         generatedAt={data?.generated_at ?? null}
         fromCache={data?.from_cache ?? false}
@@ -118,6 +118,8 @@ export function BriefingCard() {
         <BriefingError error={error} />
       ) : !data ? (
         <EmptyState />
+      ) : data.deactivated ? (
+        <DeactivatedState />
       ) : (
         <BriefingBody briefing={data.briefing} />
       )}
@@ -269,6 +271,27 @@ function EmptyState() {
       ist stabil und draussen passiert nichts, das diesen Shop konkret
       angeht. Sie können den Tag ohne Sondermassnahmen angehen.
     </p>
+  );
+}
+
+function DeactivatedState() {
+  return (
+    <div className="mt-2">
+      <p className="text-sm leading-relaxed">
+        Das tägliche Briefing ist aktuell <strong>pausiert</strong>. Keine
+        Anthropic-Credits werden verbraucht.
+      </p>
+      <p className="text-sm text-[var(--color-muted)] leading-relaxed mt-1.5">
+        Wieder einschalten unter{" "}
+        <a
+          href="/settings"
+          className="underline text-[var(--color-accent)] hover:opacity-80"
+        >
+          Einstellungen → Tägliches Briefing
+        </a>
+        .
+      </p>
+    </div>
   );
 }
 

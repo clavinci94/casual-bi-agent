@@ -48,29 +48,15 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          Anthropic API keys visible to this organisation. Fetched live via
-          the Admin API (
-          <span className="mono">/v1/organizations/api_keys</span>). The admin
-          key never leaves the backend.
+        <h1 className="text-3xl font-semibold tracking-tight">Einstellungen</h1>
+        <p className="text-sm text-[var(--color-muted)] mt-2 max-w-2xl">
+          Hier steuern Sie Kosten-relevante Funktionen und sehen, welche
+          Anthropic-Keys für diese Organisation aktiv sind. Änderungen
+          werden im Audit-Log mit Zeitstempel festgehalten.
         </p>
       </div>
 
-      {isDisabled ? (
-        <Card className="p-6 border-dashed">
-          <div className="flex flex-col items-start gap-2">
-            <Pill tone="warning">disabled</Pill>
-            <p className="text-sm">
-              <span className="mono">ANTHROPIC_ADMIN_API_KEY</span> is not set
-              on the backend. Issue an admin key in the Claude Console
-              (Organization Settings → Admin Keys) and add it to{" "}
-              <span className="mono">.env</span>, then restart{" "}
-              <span className="mono">make api-serve</span>.
-            </p>
-          </div>
-        </Card>
-      ) : null}
+      <DailyBriefingToggle />
 
       {!isDisabled ? (
         <>
@@ -306,3 +292,113 @@ function KeyRow({
     </tr>
   );
 }
+
+
+// ---------------------------------------------------------------------------
+// Daily briefing toggle — pause the cost-incurring Sonnet synthesis
+// ---------------------------------------------------------------------------
+
+function DailyBriefingToggle() {
+  const { data, mutate, isLoading } = useSWR(
+    ["system-settings"],
+    () => api.getSystemSettings(),
+    { revalidateOnFocus: false },
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+
+  async function set(active: boolean) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const next = await api.updateSystemSettings({
+        briefing_daily_active: active,
+      });
+      mutate(next, { revalidate: false });
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const active = data?.briefing_daily_active ?? true;
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="label-micro">Kostenschalter</div>
+          <h2 className="text-lg font-semibold mt-1">Tägliches Briefing</h2>
+          <p className="text-sm text-[var(--color-muted)] mt-2 leading-relaxed max-w-2xl">
+            Der Tagesbriefing-Agent läuft an jedem Werktag um 07:00 Europe/Zurich
+            und kostet etwa <strong>CHF 0.10–0.15</strong> pro Briefing
+            (~CHF 2.50/Monat). In ruhigen Phasen können Sie den Cron hier
+            pausieren — der n8n-Workflow feuert weiterhin, aber das Backend
+            antwortet sofort mit einem Stub und ruft Anthropic nicht auf.
+          </p>
+          {err ? (
+            <div className="mt-3">
+              <ErrorMessage error={err} />
+            </div>
+          ) : null}
+        </div>
+        <div className="shrink-0">
+          {isLoading ? (
+            <div className="w-32 h-10 rounded-full bg-[var(--color-surface-sunken)] animate-pulse" />
+          ) : (
+            <ToggleSwitch
+              active={active}
+              busy={busy}
+              onChange={(v) => set(v)}
+            />
+          )}
+        </div>
+      </div>
+
+      {data && !active ? (
+        <div className="mt-4 rounded-lg bg-[color-mix(in_oklch,var(--color-warning)_12%,var(--color-surface))] px-3.5 py-2.5 text-xs leading-relaxed">
+          <strong>Aktuell pausiert.</strong> Der Markt-Radar zeigt einen
+          Hinweis statt eines Briefings. Kein Verbrauch auf Anthropic-Credits.
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function ToggleSwitch({
+  active,
+  busy,
+  onChange,
+}: {
+  active: boolean;
+  busy: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label="Tägliches Briefing aktivieren oder pausieren"
+      onClick={() => onChange(!active)}
+      disabled={busy}
+      className={`relative inline-flex items-center w-32 h-10 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+        active
+          ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+          : "bg-[var(--color-surface-sunken)] text-[var(--color-muted)]"
+      }`}
+    >
+      <span
+        className={`absolute top-1 size-8 rounded-full bg-[var(--color-surface)] shadow-sm transition-transform ${
+          active ? "translate-x-[5.25rem]" : "translate-x-1"
+        }`}
+        aria-hidden
+      />
+      <span className={`relative z-10 ${active ? "ml-4" : "ml-12"}`}>
+        {busy ? "…" : active ? "Aktiv" : "Pausiert"}
+      </span>
+    </button>
+  );
+}
+

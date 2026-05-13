@@ -22,6 +22,7 @@ from biq.api import (
     kpi,
     recommendations,
     runs,
+    settings as settings_routes,
     shopify,
 )
 from biq.api.auth import require_api_key
@@ -81,6 +82,7 @@ app.include_router(admin.router, prefix="/api", dependencies=_protected)
 app.include_router(external.router, prefix="/api", dependencies=_protected)
 app.include_router(shopify.router, prefix="/api", dependencies=_protected)
 app.include_router(briefing.router, prefix="/api", dependencies=_protected)
+app.include_router(settings_routes.router, prefix="/api", dependencies=_protected)
 
 
 @app.get("/", include_in_schema=False)

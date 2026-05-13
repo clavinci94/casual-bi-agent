@@ -481,6 +481,23 @@ def generate_briefing(
         if cached is not None:
             return cached
 
+    # Cost gate — the manager can pause the daily synthesis from /settings.
+    # When inactive we return a structured stub without calling Sonnet, so
+    # the n8n cron and any user click are both cost-neutral.
+    from biq import system_config
+
+    if not system_config.briefing_daily_active():
+        return {
+            "run_id": None,
+            "generated_at": None,
+            "briefing": {
+                "headline": "Tagesbriefing pausiert — zum Aktivieren in den Einstellungen wieder einschalten.",
+                "signals": [],
+            },
+            "from_cache": False,
+            "deactivated": True,
+        }
+
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env to run the briefing.")
 

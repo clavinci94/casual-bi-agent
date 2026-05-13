@@ -241,6 +241,15 @@ export const api = {
   briefingRefresh: () =>
     request<BriefingResponse>("/api/briefing/refresh", { method: "POST" }),
 
+  // Manager-visible system settings (audit.system_config)
+  getSystemSettings: () =>
+    request<{ briefing_daily_active: boolean }>("/api/settings"),
+  updateSystemSettings: (patch: { briefing_daily_active?: boolean }) =>
+    request<{ briefing_daily_active: boolean }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
   // investigations
   startLlmInvestigation: (payload: {
     question: string;

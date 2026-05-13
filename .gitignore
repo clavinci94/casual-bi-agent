@@ -8,6 +8,11 @@ venv/
 .env.local
 .env.bak*
 *.env.bak*
+
+# Personal screenshots — local exploration / pitch material, not versioned
+docs/*.png
+docs/*.html
+docs/Bildschirmfoto*
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
