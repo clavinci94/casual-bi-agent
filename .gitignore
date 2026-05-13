@@ -70,3 +70,4 @@ docs/strategy/
 # Secrets
 *.pem
 *.key
+.claude/

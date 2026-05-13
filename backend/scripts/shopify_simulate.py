@@ -261,11 +261,12 @@ def _insert_products(products: list[dict[str, Any]]) -> None:
                     """
                     INSERT INTO raw.shopify_products
                         (product_id, title, handle, vendor, product_type,
-                         created_at, updated_at, published_at, status, raw)
+                         created_at, updated_at, published_at, status, raw,
+                         data_source)
                     VALUES
                         (:product_id, :title, :handle, :vendor, :product_type,
                          :created_at, :updated_at, :published_at, :status,
-                         cast(:raw as jsonb))
+                         cast(:raw as jsonb), 'sim')
                     ON CONFLICT (product_id) DO NOTHING
                     """
                 ),
@@ -298,12 +299,13 @@ def _insert_customers(customers: list[dict[str, Any]]) -> None:
                     INSERT INTO raw.shopify_customers
                         (customer_id, email, created_at, updated_at, orders_count,
                          total_spent, state, accepts_marketing,
-                         default_address_country, default_address_province, raw)
+                         default_address_country, default_address_province, raw,
+                         data_source)
                     VALUES
                         (:customer_id, :email, :created_at, :updated_at, :orders_count,
                          :total_spent, :state, :accepts_marketing,
                          :default_address_country, :default_address_province,
-                         cast(:raw as jsonb))
+                         cast(:raw as jsonb), 'sim')
                     ON CONFLICT (customer_id) DO NOTHING
                     """
                 ),
@@ -324,14 +326,14 @@ def _insert_orders(orders: list[dict[str, Any]]) -> None:
                          cancelled_at, customer_id, email, financial_status,
                          fulfillment_status, total_price, subtotal_price,
                          total_discounts, total_shipping, total_tax, currency,
-                         line_items_count, source_name, raw)
+                         line_items_count, source_name, raw, data_source)
                     VALUES
                         (:order_id, :order_number, :created_at, :updated_at,
                          :processed_at, :cancelled_at, :customer_id, :email,
                          :financial_status, :fulfillment_status, :total_price,
                          :subtotal_price, :total_discounts, :total_shipping,
                          :total_tax, :currency, :line_items_count, :source_name,
-                         cast(:raw as jsonb))
+                         cast(:raw as jsonb), 'sim')
                     ON CONFLICT (order_id) DO NOTHING
                     """
                 ),

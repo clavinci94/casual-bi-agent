@@ -56,5 +56,14 @@ class Settings(BaseSettings):
     # Unset = open (dev mode).
     biq_api_key: str | None = None
 
+    # Which slice of raw.shopify_* the KPI views (and therefore the
+    # Markt-Radar + Briefing-Agent) read from. The migration tags every
+    # row with data_source = 'sim' | 'live'. KPI views filter via the
+    # Postgres session variable `biq.data_source`, which biq.db sets
+    # from this value when each connection is checked out.
+    #   "sim"   — read the simulated demo store (default — safe for fresh installs)
+    #   "live"  — read the real Shopify dev-store synced via shopify-sync
+    biq_data_source: str = "sim"
+
 
 settings = Settings()  # type: ignore[call-arg]

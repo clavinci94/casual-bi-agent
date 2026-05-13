@@ -2,7 +2,7 @@ DB_URL ?= postgresql+psycopg://causalbi:causalbi@localhost:5433/causalbi
 PSQL_URL := $(subst postgresql+psycopg,postgresql,$(DB_URL))
 DATA_DIR ?= $(PWD)/data/seed
 
-.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies detect-shopify-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals briefing-smoke frontend-install frontend-dev frontend-build shopify-sync shopify-sync-incremental shopify-simulate slack-test
+.PHONY: help db-up db-down db-wait db-schemas db-load db-simulate db-seed db-reset detect-anomalies detect-shopify-anomalies investigate graph-investigate mcp-serve mcp-inspect mcp-smoke r-up r-down r-logs causal-smoke hitl api-serve backend-sync format lint test evals briefing-smoke frontend-install frontend-dev frontend-build shopify-sync shopify-sync-incremental shopify-simulate shopify-seed-dev slack-test
 
 help:
 	@echo "Targets:"
@@ -144,6 +144,9 @@ shopify-sync-incremental:
 
 shopify-simulate:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/shopify_simulate.py $(SIM_ARGS)
+
+shopify-seed-dev:
+	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/shopify_seed_dev_store.py
 
 detect-shopify-anomalies:
 	@cd backend && DATABASE_URL="$(DB_URL)" uv run python scripts/detect_anomalies.py --source shopify $(DETECT_ARGS)

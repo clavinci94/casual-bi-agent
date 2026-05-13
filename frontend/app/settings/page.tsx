@@ -55,6 +55,7 @@ export default function SettingsPage() {
       />
 
       <DailyBriefingToggle />
+      <DataSourceToggle />
 
       {!isDisabled ? (
         <>
@@ -400,3 +401,113 @@ function ToggleSwitch({
   );
 }
 
+
+// ---------------------------------------------------------------------------
+// Sim ↔ Live data-source toggle — flip the dashboard between the simulated
+// demo store and the real Shopify dev-store sync
+// ---------------------------------------------------------------------------
+
+function DataSourceToggle() {
+  const { data, mutate, isLoading } = useSWR(
+    ["system-settings"],
+    () => api.getSystemSettings(),
+    { revalidateOnFocus: false },
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+
+  async function set(next: "sim" | "live") {
+    setBusy(true);
+    setErr(null);
+    try {
+      const updated = await api.updateSystemSettings({ data_source: next });
+      mutate(updated, { revalidate: false });
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const value: "sim" | "live" = data?.data_source ?? "sim";
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="label-micro">Datenquelle</div>
+          <h2 className="text-lg font-semibold mt-1">Dashboard-Daten</h2>
+          <p className="text-sm text-[var(--color-muted)] mt-2 leading-relaxed max-w-2xl">
+            <strong>Sim</strong>: simulierter Demo-Shop mit 5'000 Bestellungen
+            inkl. einer eingepflanzten Mobile-Anomalie — ideal für
+            wiederholbare Demos.{" "}
+            <strong>Live</strong>: echter Shopify-Dev-Store (
+            <span className="mono">causal-bi-demo.myshopify.com</span>) mit
+            den per ETL synchronisierten Bestellungen. Beide Datensätze
+            koexistieren in der DB — der Wechsel ist nicht-destruktiv.
+          </p>
+          {err ? (
+            <div className="mt-3">
+              <ErrorMessage error={err} />
+            </div>
+          ) : null}
+        </div>
+        <div className="shrink-0">
+          {isLoading ? (
+            <div className="w-40 h-10 rounded-full bg-[var(--color-surface-sunken)] animate-pulse" />
+          ) : (
+            <Segmented
+              value={value}
+              busy={busy}
+              options={[
+                { value: "sim", label: "Demo" },
+                { value: "live", label: "Live" },
+              ]}
+              onChange={(v) => set(v)}
+            />
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function Segmented({
+  value,
+  options,
+  busy,
+  onChange,
+}: {
+  value: "sim" | "live";
+  options: { value: "sim" | "live"; label: string }[];
+  busy: boolean;
+  onChange: (next: "sim" | "live") => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Datenquelle wählen"
+      className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] p-1"
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            disabled={busy}
+            onClick={() => !active && onChange(o.value)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+              active
+                ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            }`}
+          >
+            {busy && active ? "…" : o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

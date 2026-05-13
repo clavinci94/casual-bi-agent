@@ -4,6 +4,28 @@ import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { HealthStatus } from "@/lib/types";
 
+function DataSourceIndicator() {
+  const { data } = useSWR(
+    ["system-settings"],
+    () => api.getSystemSettings(),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
+  if (!data) return null;
+  const isLive = data.data_source === "live";
+  const className = isLive
+    ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+    : "bg-[color-mix(in_oklch,var(--color-warning)_18%,var(--color-surface))] text-[oklch(0.38_0.13_75)]";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${className}`}
+      title={isLive ? "Echte Shopify-Daten" : "Simulierter Demo-Datensatz"}
+    >
+      <span className="size-1.5 rounded-full bg-current opacity-70" aria-hidden />
+      {isLive ? "Live-Daten" : "Demo-Daten"}
+    </span>
+  );
+}
+
 /**
  * Slim top bar above the page content. Mirrors Tavily's pattern of an
  * "Operational" / status pill in the top-right with optional secondary
@@ -21,6 +43,7 @@ export function TopBar() {
 
   return (
     <div className="flex items-center justify-end gap-2 px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+      <DataSourceIndicator />
       <StatusPill ok={ok} loading={!data} />
     </div>
   );

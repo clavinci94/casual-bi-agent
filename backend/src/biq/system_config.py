@@ -73,3 +73,28 @@ def briefing_daily_active() -> bool:
 
 def set_briefing_daily_active(active: bool, *, updated_by: str | None = None) -> None:
     set_("briefing.daily_active", {"active": bool(active)}, updated_by=updated_by)
+
+
+def data_source() -> str:
+    """Current data slice for kpi.shopify_* views: 'sim' or 'live'.
+
+    Reads audit.system_config first (manager toggle from /settings),
+    falls back to the BIQ_DATA_SOURCE env-var, then 'sim' as the
+    safe default. Stored as `{"value": "sim"}` for forward-compat.
+    """
+    payload = get("biq.data_source", None)
+    if isinstance(payload, dict):
+        v = payload.get("value")
+        if v in ("sim", "live"):
+            return v
+    # No row yet — first-time install. Use env var if present.
+    from biq.config import settings as _s
+
+    env_val = (_s.biq_data_source or "sim").lower()
+    return env_val if env_val in ("sim", "live") else "sim"
+
+
+def set_data_source(value: str, *, updated_by: str | None = None) -> None:
+    if value not in ("sim", "live"):
+        raise ValueError(f"data_source must be 'sim' or 'live', got {value!r}")
+    set_("biq.data_source", {"value": value}, updated_by=updated_by)
