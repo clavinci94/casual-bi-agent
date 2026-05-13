@@ -3,12 +3,15 @@
  *
  * Reads the API base URL from NEXT_PUBLIC_API_URL (defaults to 127.0.0.1:8000).
  *
- * Auth: the dashboard is intended to be deployed behind a reverse proxy /
- * SSO that handles user authentication. The FastAPI backend's X-API-Key
- * (BIQ_API_KEY) protects machine-to-machine integrations (n8n, scripts);
- * it is intentionally NOT shipped to the browser. For development the
- * backend runs open (BIQ_API_KEY unset) so the dashboard reaches it
- * without credentials.
+ * Auth: when Auth0 SSO is configured (BIQ_AUTH_MODE=bearer_jwt on the
+ * backend, AUTH0_* env on the frontend), this module fetches an access
+ * token from /auth/access-token (a route the Auth0 SDK middleware exposes)
+ * and attaches it as `Authorization: Bearer <jwt>` to every backend call.
+ * The token is cached client-side until the SDK refreshes it.
+ *
+ * Falls back to no-auth when the access-token endpoint returns 401/204,
+ * so local dev with BIQ_AUTH_MODE=disabled still works without anyone
+ * being logged in.
  */
 
 import type {
@@ -45,6 +48,27 @@ export class ApiError extends Error {
   }
 }
 
+// In-memory cache for the Auth0 access token. Cleared after a 401 so a
+// stale token can be refreshed by re-fetching from /auth/access-token.
+let _cachedAccessToken: string | null = null;
+
+async function fetchAccessToken(): Promise<string | null> {
+  if (_cachedAccessToken) return _cachedAccessToken;
+  try {
+    // The Auth0 v4 middleware exposes /auth/access-token which returns
+    // { token: "..." } for the signed-in user, or 401 when there's no
+    // session. We never throw on auth errors here — the caller might
+    // be running against a backend with auth disabled.
+    const res = await fetch("/auth/access-token", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { token?: string };
+    _cachedAccessToken = data.token ?? null;
+    return _cachedAccessToken;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -54,8 +78,21 @@ async function request<T>(
     headers.set("Content-Type", "application/json");
   }
 
+  // Only attach the Bearer token when running in the browser — server
+  // components reach the backend through their own auth path. /healthz
+  // and similar public endpoints don't need a token either.
+  if (typeof window !== "undefined" && !headers.has("Authorization")) {
+    const token = await fetchAccessToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
   const res = await fetch(url, { ...init, headers, cache: "no-store" });
+
+  // On 401: invalidate the cached token and let the next call re-fetch it.
+  if (res.status === 401) {
+    _cachedAccessToken = null;
+  }
 
   if (!res.ok) {
     let body: unknown = null;

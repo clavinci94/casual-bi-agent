@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Auth0Provider } from "@auth0/nextjs-auth0";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/topbar";
@@ -18,17 +19,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <SwrProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0">
-              <TopBar />
-              <main className="flex-1 max-w-5xl mx-auto px-6 sm:px-8 py-8 w-full">
-                {children}
-              </main>
+        <Auth0Provider>
+          <SwrProvider>
+            <div className="flex min-h-screen">
+              <Sidebar />
+              <div className="flex-1 flex flex-col min-w-0">
+                <TopBar />
+                <main className="flex-1 max-w-5xl mx-auto px-6 sm:px-8 py-8 w-full">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
-        </SwrProvider>
+          </SwrProvider>
+        </Auth0Provider>
       </body>
     </html>
   );

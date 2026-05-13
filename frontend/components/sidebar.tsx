@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@auth0/nextjs-auth0";
 import {
   BarChart3,
   BookOpen,
   CompassIcon,
   HomeIcon,
+  LogIn,
+  LogOut,
   RadarIcon,
   Settings,
   SparklesIcon,
@@ -97,18 +100,67 @@ function NavLink({ item }: { item: NavItem }) {
 }
 
 function UserCard() {
+  const { user, isLoading } = useUser();
+
+  if (isLoading) {
+    return (
+      <div className="border-t border-[var(--color-border)] px-3 py-3">
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg animate-pulse">
+          <span className="size-7 rounded-full bg-[var(--color-surface-sunken)] shrink-0" />
+          <div className="h-3 w-20 rounded bg-[var(--color-surface-sunken)]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="border-t border-[var(--color-border)] px-3 py-3">
+        <a
+          href="/auth/login"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--color-surface-sunken)] text-sm font-medium"
+        >
+          <span className="size-7 rounded-full bg-[var(--color-accent)] text-[var(--color-accent-fg)] flex items-center justify-center shrink-0">
+            <LogIn className="size-3.5" />
+          </span>
+          <span>Anmelden</span>
+        </a>
+      </div>
+    );
+  }
+
+  const name =
+    (user.name as string | undefined) ??
+    (user.email as string | undefined) ??
+    "Angemeldet";
+  const sub = (user.email as string | undefined) ?? "Auth0";
+  const picture = user.picture as string | undefined;
+
   return (
     <div className="border-t border-[var(--color-border)] px-3 py-3">
       <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-        <span className="size-7 rounded-full bg-[var(--color-surface-sunken)] flex items-center justify-center shrink-0">
-          <User2 className="size-3.5 text-[var(--color-muted)]" />
+        <span className="size-7 rounded-full bg-[var(--color-surface-sunken)] flex items-center justify-center shrink-0 overflow-hidden">
+          {picture ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={picture} alt={name} className="size-full object-cover" />
+          ) : (
+            <User2 className="size-3.5 text-[var(--color-muted)]" />
+          )}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium truncate">Manager-Demo</div>
+          <div className="text-xs font-medium truncate">{name}</div>
           <div className="text-[10px] text-[var(--color-muted)] truncate">
-            causal-bi · lokal
+            {sub}
           </div>
         </div>
+        <a
+          href="/auth/logout"
+          title="Abmelden"
+          aria-label="Abmelden"
+          className="text-[var(--color-muted)] hover:text-[var(--color-fg)] shrink-0 p-1"
+        >
+          <LogOut className="size-3.5" />
+        </a>
       </div>
     </div>
   );
