@@ -5,13 +5,17 @@ import Link from "next/link";
 export function Card({
   children,
   className = "",
+  /** "lg" gives the hero/featured cards a 32px rounding (Tavily-style) */
+  size = "default",
 }: {
   children: React.ReactNode;
   className?: string;
+  size?: "default" | "lg";
 }) {
+  const radius = size === "lg" ? "rounded-[2rem]" : "rounded-[1.5rem]";
   return (
     <div
-      className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${className}`}
+      className={`bg-[var(--color-surface)] border border-[var(--color-border)] ${radius} ${className}`}
     >
       {children}
     </div>
@@ -49,18 +53,23 @@ export function Pill({
   children: React.ReactNode;
   tone?: "neutral" | "success" | "warning" | "danger" | "accent";
 }) {
+  // Tavily-style: solid pills, no border. Neutral pill is the same near-black
+  // as the main accent so primary metadata reads as a "chip", not as decoration.
   const map: Record<string, string> = {
     neutral:
-      "bg-[var(--color-bg)] text-[var(--color-muted)] border-[var(--color-border)]",
-    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    warning: "bg-amber-50 text-amber-800 border-amber-200",
-    danger: "bg-red-50 text-red-700 border-red-200",
+      "bg-[var(--color-accent)] text-[var(--color-accent-fg)]",
+    success:
+      "bg-[color-mix(in_oklch,var(--color-success)_22%,var(--color-surface))] text-[oklch(0.35_0.10_150)]",
+    warning:
+      "bg-[color-mix(in_oklch,var(--color-warning)_25%,var(--color-surface))] text-[oklch(0.38_0.13_75)]",
+    danger:
+      "bg-[color-mix(in_oklch,var(--color-danger)_18%,var(--color-surface))] text-[var(--color-danger)]",
     accent:
-      "bg-[color-mix(in_oklch,var(--color-accent)_15%,white)] text-[var(--color-accent)] border-[color-mix(in_oklch,var(--color-accent)_30%,white)]",
+      "bg-[color-mix(in_oklch,var(--color-accent)_14%,var(--color-surface))] text-[var(--color-accent)]",
   };
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${map[tone]}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${map[tone]}`}
     >
       {children}
     </span>

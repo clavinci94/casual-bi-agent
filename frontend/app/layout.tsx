@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Nav } from "@/components/nav";
+import { Sidebar } from "@/components/sidebar";
+import { TopBar } from "@/components/topbar";
 import { SwrProvider } from "@/components/swr-config";
 
 export const metadata: Metadata = {
@@ -16,12 +17,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen">
         <SwrProvider>
-          <Nav />
-          <main className="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
-            {children}
-          </main>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="flex-1 flex flex-col min-w-0">
+              <TopBar />
+              <main className="flex-1 max-w-5xl mx-auto px-6 sm:px-8 py-8 w-full">
+                {children}
+              </main>
+            </div>
+          </div>
         </SwrProvider>
       </body>
     </html>

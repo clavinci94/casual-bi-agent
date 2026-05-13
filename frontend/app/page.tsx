@@ -79,47 +79,41 @@ export default function Dashboard() {
   return (
     <div className="space-y-10">
       {/* Enterprise hero — what the platform does + business value. */}
-      <section className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] via-[var(--color-surface)] to-[color-mix(in_oklch,var(--color-accent)_8%,var(--color-surface))] p-8 sm:p-10">
+      <section className="relative overflow-hidden rounded-[2rem] bg-aurora p-10 sm:p-14">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-accent)] font-semibold">
-            <span className="size-1.5 rounded-full bg-[var(--color-accent)]" />
-            Agentic Business Intelligence
-          </div>
+          <div className="label-micro">Aktueller Plan</div>
 
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mt-3 leading-tight">
-            Vom <span className="text-[var(--color-muted)]">Was</span> zum{" "}
-            <span className="text-[var(--color-accent)]">Warum</span> —
-            in unter einer Minute.
+          <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight mt-3 leading-[1.05]">
+            Causal BI
           </h1>
 
-          <p className="mt-4 text-base sm:text-lg text-[var(--color-fg)] leading-relaxed">
+          <p className="mt-5 text-base sm:text-lg text-[var(--color-fg)] leading-relaxed max-w-2xl">
             Causal BI überwacht Ihre Geschäftskennzahlen autonom, erkennt
             Anomalien proaktiv und beweist mit statistischer Kausalanalyse,{" "}
-            <em>warum</em> sie auftreten. Jede Empfehlung wird mit Effektgrösse,
-            Konfidenzintervall und Sensitivitätsanalyse vorgelegt — und
-            durchläuft Ihre Freigabe, bevor sie wirksam wird.
+            <em>warum</em> sie auftreten. Jede Empfehlung kommt mit Effektgrösse,
+            Konfidenzintervall und Sensitivitätsanalyse — und durchläuft Ihre
+            Freigabe, bevor sie wirksam wird.
           </p>
 
-          <p className="mt-3 text-sm text-[var(--color-muted)] leading-relaxed">
-            Klassische BI-Tools zeigen Zahlen. Generative-AI-Tools formulieren
-            Vermutungen. Diese Plattform liefert nachvollziehbare,
-            revisionssichere Entscheidungsgrundlagen — und lernt aus jeder
-            getroffenen Entscheidung weiter.
+          <p className="mt-3 text-sm text-[var(--color-muted)] leading-relaxed max-w-2xl">
+            Klassische BI zeigt Zahlen, generative AI rät. Diese Plattform
+            liefert nachvollziehbare, revisionssichere Entscheidungs­grundlagen —
+            und lernt aus jeder Entscheidung weiter.
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
               href="/investigate"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-accent-fg)] font-medium hover:opacity-90 shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--color-accent)] text-[var(--color-accent-fg)] text-sm font-medium hover:opacity-90"
             >
               Untersuchung starten
               <span aria-hidden="true">→</span>
             </a>
             <a
               href="/kpis"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[var(--color-border)] text-[var(--color-fg)] hover:bg-[var(--color-bg)]"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-border)] text-sm text-[var(--color-fg)] hover:bg-[var(--color-surface-sunken)]"
             >
-              KPIs ansehen
+              Kennzahlen ansehen
             </a>
           </div>
         </div>
