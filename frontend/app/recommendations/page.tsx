@@ -69,12 +69,7 @@ export default function RecommendationsIndex() {
     () => (data ?? []).filter((r) => r.status === "pending").map((r) => r.rec_id),
     [data],
   );
-  const allSelected =
-    selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
 
-  function selectAll() {
-    setSelected(new Set(selectableIds));
-  }
   function clearSelection() {
     setSelected(new Set());
   }
@@ -141,24 +136,11 @@ export default function RecommendationsIndex() {
         </Card>
       ) : (
         <>
-          <div className="flex items-center justify-between text-sm text-[var(--color-muted)] -mb-2">
-            <span>
-              {data.length} {data.length === 1 ? "Empfehlung" : "Empfehlungen"}
-              {selectableIds.length > 0
-                ? ` · ${selectableIds.length} offen, auswählbar`
-                : ""}
-            </span>
-            {selectableIds.length > 0 ? (
-              <button
-                type="button"
-                onClick={allSelected ? clearSelection : selectAll}
-                className="text-[var(--color-accent)] hover:underline"
-              >
-                {allSelected
-                  ? "Auswahl aufheben"
-                  : `Alle ${selectableIds.length} offene auswählen`}
-              </button>
-            ) : null}
+          <div className="text-sm text-[var(--color-muted)] -mb-2">
+            {data.length} {data.length === 1 ? "Empfehlung" : "Empfehlungen"}
+            {selectableIds.length > 0
+              ? ` · ${selectableIds.length} davon offen`
+              : ""}
           </div>
 
           <ul className="space-y-3">
