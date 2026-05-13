@@ -107,7 +107,12 @@ def detect_by_device(
             "now": [str(now_start), str(now_end)],
             "prior": [str(prior_start), str(prior_end)],
         },
-        result_summary={"rows_now": len(df_now), "rows_prior": len(df_prior)},
+        result_summary={
+            "rows_now": len(df_now),
+            "rows_prior": len(df_prior),
+            "now_by_device": df_now.to_dict(orient="records"),
+            "prior_by_device": df_prior.to_dict(orient="records"),
+        },
         rows=len(df_now) + len(df_prior),
     )
 
@@ -335,7 +340,12 @@ def detect_shopify_orders_by_channel(
             "now": [str(now_start), str(now_end)],
             "prior": [str(prior_start), str(prior_end)],
         },
-        result_summary={"rows_now": len(df_now), "rows_prior": len(df_prior)},
+        result_summary={
+            "rows_now": len(df_now),
+            "rows_prior": len(df_prior),
+            "now_by_channel": df_now.to_dict(orient="records"),
+            "prior_by_channel": df_prior.to_dict(orient="records"),
+        },
         rows=len(df_now) + len(df_prior),
     )
 

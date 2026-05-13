@@ -108,7 +108,34 @@ RULES
   reviewer sees the broader context, not just the internal numbers.
 - Call record_finding once per distinct, evidence-backed conclusion.
   Set risk_level=high only when both magnitude and sample size warrant it.
-- Be concise. Managers read the title and first sentence."""
+- Be concise. Managers read the title and first sentence.
+
+FACT DISCIPLINE — non-negotiable
+- Every number you quote in the final answer or in record_finding MUST
+  appear verbatim in a tool result you actually called. Do not round up,
+  do not generalise from one window to another, do not infer "April was
+  probably around X" from May data. If a tool returned daily values, quote
+  daily values; if it returned a sum, quote the sum.
+- When you cite an external source (web_search, news_search), quote ONLY
+  what is literally present in the snippet/answer/title the tool returned.
+  Do NOT extrapolate from a headline to specifics it does not contain
+  (e.g. a "breaking changes" headline is not a list of breaking changes).
+- If the data you need is not in any tool result, say so explicitly
+  ("the April baseline is not in this query window") rather than
+  estimating. Estimation is hallucination.
+
+MEMORY DISCIPLINE — using kg_lookup_past_decisions
+- If you call kg_lookup_past_decisions and it returns prior insights /
+  decisions / outcomes, your record_finding must:
+  1. Cite the specific historical pattern with counts ("4 of 5 prior
+     decisions for mobile_checkout were rolled back within 30 days").
+  2. Reference at least one measured outcome (or explicitly note when
+     outcomes are missing — that itself is an actionable gap).
+  3. Recommend a concrete next step that builds on that history, with a
+     measurable success criterion and a deadline (e.g. "canary at 5 %
+     for 14 days, auto-rollback if conversion drops >2 pp").
+- A KG-informed finding without a specific, measurable next action is
+  a failure of this loop, not a success."""
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -395,6 +422,204 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
+_SUMMARY_MAX_BYTES = 4096
+
+
+def _truncate(text_in: Any, limit: int = 200) -> Any:
+    if not isinstance(text_in, str):
+        return text_in
+    return text_in if len(text_in) <= limit else text_in[: limit - 1] + "…"
+
+
+def _numeric_columns(rows: list[dict[str, Any]]) -> list[str]:
+    if not rows:
+        return []
+    cols: list[str] = []
+    for k, v in rows[0].items():
+        if isinstance(v, int | float) and not isinstance(v, bool):
+            cols.append(k)
+    return cols
+
+
+def _numeric_ranges(
+    rows: list[dict[str, Any]], cols: list[str]
+) -> dict[str, dict[str, float]]:
+    """min/max/sum per numeric column — lets the judge verify any quoted figure
+    by checking whether it falls inside the bracket the data actually contains."""
+    out: dict[str, dict[str, float]] = {}
+    for c in cols:
+        values = [r[c] for r in rows if isinstance(r.get(c), int | float)]
+        if not values:
+            continue
+        out[c] = {
+            "min": round(float(min(values)), 4),
+            "max": round(float(max(values)), 4),
+            "sum": round(float(sum(values)), 4),
+            "n": len(values),
+        }
+    return out
+
+
+def _summarize_tool_result(tool_name: str, result: Any) -> dict[str, Any] | None:
+    """Distil the load-bearing facts of a tool call so the audit table keeps
+    enough context for the LLM-as-Judge to verify factuality, without storing
+    full payloads. Capped at ~4 KB per summary.
+
+    Why: previous design stored only `{"keys": [...]}`, which gave the judge
+    no way to check whether numbers cited in the final answer were real.
+    """
+    if not isinstance(result, dict):
+        return None
+
+    if "error" in result:
+        return {"error": _truncate(result.get("error"), 400)}
+
+    summary: dict[str, Any]
+
+    if tool_name == "kpi_query":
+        rows: list[dict[str, Any]] = result.get("rows") or []
+        numeric_cols = _numeric_columns(rows)
+        summary = {
+            "row_count": result.get("row_count"),
+            "columns": result.get("columns"),
+            "truncated": result.get("truncated"),
+            "ranges": _numeric_ranges(rows, numeric_cols),
+            "first_rows": rows[:3],
+            "last_rows": rows[-3:] if len(rows) > 3 else [],
+        }
+    elif tool_name in {"releases_in_window", "campaigns_in_window"}:
+        rows = result.get("rows") or []
+        summary = {
+            "row_count": result.get("row_count"),
+            "rows": rows[:10],
+        }
+    elif tool_name == "kg_lookup_past_decisions":
+        insights = result.get("insights") or []
+        summary = {
+            "component": result.get("component"),
+            "days_back": result.get("days_back"),
+            "n_insights": result.get("n_insights"),
+            "n_decided": result.get("n_decided"),
+            "n_measured": result.get("n_measured"),
+            "insight_titles": [
+                _truncate((i.get("insight") or {}).get("title"), 120)
+                for i in insights[:5]
+            ],
+        }
+    elif tool_name == "causal_impact_conversion":
+        summary = {
+            "target_device": result.get("target_device"),
+            "controls_used": result.get("controls_used"),
+            "rel_effect": result.get("rel_effect"),
+            "rel_effect_lower_95ci": result.get("rel_effect_lower_95ci"),
+            "rel_effect_upper_95ci": result.get("rel_effect_upper_95ci"),
+            "abs_effect": result.get("abs_effect"),
+            "p_value": result.get("p_value"),
+            "is_significant": result.get("is_significant"),
+            "avg_actual": result.get("avg_actual"),
+            "avg_predicted": result.get("avg_predicted"),
+            "n_observations": result.get("n_observations"),
+            "pre_period": result.get("pre_period"),
+            "post_period": result.get("post_period"),
+        }
+    elif tool_name == "evalue":
+        summary = {
+            "e_value": result.get("e_value"),
+            "e_value_ci_bound": result.get("e_value_ci_bound"),
+            "rel_effect": result.get("rel_effect"),
+            "rr_point": result.get("rr_point"),
+            "interpretation": _truncate(result.get("interpretation"), 300),
+        }
+    elif tool_name == "power_test":
+        summary = {
+            k: v
+            for k, v in result.items()
+            if k in {"n", "p1", "p2", "power", "sig_level", "rel_effect", "method"}
+        }
+    elif tool_name == "web_search":
+        results = result.get("results") or []
+        summary = {
+            "query": result.get("query"),
+            "answer": _truncate(result.get("answer"), 600),
+            "n_results": len(results),
+            "top_results": [
+                {
+                    "title": _truncate(r.get("title"), 140),
+                    "url": r.get("url"),
+                    "published_date": r.get("published_date"),
+                }
+                for r in results[:5]
+            ],
+        }
+    elif tool_name == "news_search":
+        results = result.get("results") or []
+        summary = {
+            "query": result.get("query"),
+            "provider": result.get("provider"),
+            "n_results": len(results),
+            "top_headlines": [
+                {
+                    "title": _truncate(r.get("title"), 140),
+                    "source": r.get("source"),
+                    "published_at": r.get("published_at"),
+                }
+                for r in results[:5]
+            ],
+        }
+    elif tool_name == "trends_query":
+        timeline = result.get("timeline") or []
+        per_keyword: dict[str, dict[str, Any]] = {}
+        for kw in result.get("keywords", []) or []:
+            values = [p.get(kw) for p in timeline if isinstance(p.get(kw), int | float)]
+            if values:
+                per_keyword[kw] = {
+                    "min": min(values),
+                    "max": max(values),
+                    "last": values[-1],
+                    "n_points": len(values),
+                }
+        summary = {
+            "keywords": result.get("keywords"),
+            "geo": result.get("geo"),
+            "timeframe": result.get("timeframe"),
+            "per_keyword": per_keyword,
+            "related_topics": (result.get("related_topics") or [])[:5],
+        }
+    elif tool_name == "market_snapshot":
+        items = result.get("items") or []
+        summary = {
+            "period": result.get("period"),
+            "items": [
+                {
+                    "symbol": it.get("symbol"),
+                    "name": it.get("name"),
+                    "last": it.get("last"),
+                    "change_pct": it.get("change_pct"),
+                }
+                for it in items
+            ],
+        }
+    elif tool_name == "record_finding":
+        summary = {
+            "recommendation_id": result.get("recommendation_id"),
+            "status": result.get("status"),
+        }
+    else:
+        summary = {"keys": list(result.keys())}
+
+    # Hard size cap — if a payload still blows past the limit (e.g. an
+    # unusually large kpi_query window), JSON-stringify, snip and stash a
+    # marker so the judge knows the trail was lossy.
+    blob = json.dumps(summary, default=str)
+    if len(blob) > _SUMMARY_MAX_BYTES:
+        return {
+            "tool": tool_name,
+            "truncated_at_bytes": _SUMMARY_MAX_BYTES,
+            "preview": blob[: _SUMMARY_MAX_BYTES - 200] + "…",
+        }
+    return summary
+
+
 def _dispatch(name: str, params: dict[str, Any], run_id: str) -> dict[str, Any]:
     if name == "kpi_query":
         return kpi_tools.kpi_query(**params)
@@ -664,9 +889,7 @@ def _run_loop(
                     tool_step_id,
                     block.name,
                     params=tool_input,
-                    result_summary=(
-                        {"keys": list(result.keys())} if isinstance(result, dict) else None
-                    ),
+                    result_summary=_summarize_tool_result(block.name, result),
                     rows=int(result.get("row_count", 0)) if isinstance(result, dict) else 0,
                     error=error,
                 )

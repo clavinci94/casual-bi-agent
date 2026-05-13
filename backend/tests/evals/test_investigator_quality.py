@@ -33,10 +33,12 @@ def test_investigation_quality(case, db_ready: bool) -> None:  # type: ignore[no
 
     result = investigate(
         case.question,
-        max_iterations=8,
-        # Tight budget so an off-the-rails run still costs cents, not francs.
-        max_input_tokens=80_000,
-        max_output_tokens=8_000,
+        max_iterations=10,
+        # Budget sized so a worst-case investigation (heavy external-tool
+        # case like the Shopify diagnosis) still completes, while still
+        # capping a runaway run well below the 200k production default.
+        max_input_tokens=140_000,
+        max_output_tokens=10_000,
     )
     assert "error" not in result, result.get("error")
     assert result.get("final_answer"), "investigator returned no final_answer"
