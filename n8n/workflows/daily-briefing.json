@@ -19,14 +19,14 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.BIQ_API_URL }}/api/briefing/refresh",
+        "url": "http://host.docker.internal:8000/api/briefing/refresh",
         "method": "POST",
         "options": {
           "headers": {
             "parameters": [
               {
                 "name": "X-API-Key",
-                "value": "={{ $env.BIQ_API_KEY }}"
+                "value": "REPLACE_WITH_BIQ_API_KEY"
               }
             ]
           },
@@ -74,11 +74,11 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"text\": \":sunrise: *Causal BI · Tagesbriefing*\\n*\" + $json.briefing.headline + \"*\\n\\n\" + ($json.briefing.signals || []).filter(s => s.urgency === 'high').map(s => `• *${s.what}*\\n  _Warum_: ${s.why_for_you}\\n  _Aktion_: ${s.action}`).join('\\n\\n') + \"\\n\\n<\" + $env.DASHBOARD_PUBLIC_URL + \"/markt-radar|Vollständiges Briefing →>\"\n}"
+        "jsonBody": "{\n  \"text\": \"{{ ':sunrise: *Causal BI · Tagesbriefing*\\n*' + $json.briefing.headline + '*\\n\\n' + ($json.briefing.signals || []).filter(s => s.urgency === 'high').map(s => '• *' + s.what + '*\\n  _Warum_: ' + s.why_for_you + '\\n  _Aktion_: ' + s.action).join('\\n\\n') + '\\n\\n<http://localhost:3000/markt-radar|Vollständiges Briefing →>' }}\"\n}"
       },
       "name": "Slack · Briefing Summary",
       "type": "n8n-nodes-base.httpRequest",
@@ -87,11 +87,11 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"text\": \":warning: *Causal BI · Tagesbriefing fehlgeschlagen*\\nDer 07:00-Refresh konnte das Briefing nicht erzeugen.\\n```\\n\" + ($json.error || $json.message || JSON.stringify($json).slice(0, 500)) + \"\\n```\\nBitte API-Logs prüfen und manuell auf <\" + $env.DASHBOARD_PUBLIC_URL + \"/markt-radar|Markt-Radar> nachladen.\"\n}"
+        "jsonBody": "{\n  \"text\": \"{{ ':warning: *Causal BI · Tagesbriefing fehlgeschlagen*\\nDer 07:00-Refresh konnte das Briefing nicht erzeugen.\\n```\\n' + ($json.error || $json.message || JSON.stringify($json).slice(0, 500)) + '\\n```\\nBitte API-Logs prüfen und manuell auf <http://localhost:3000/markt-radar|Markt-Radar> nachladen.' }}\"\n}"
       },
       "name": "Slack · Error Alert",
       "type": "n8n-nodes-base.httpRequest",
