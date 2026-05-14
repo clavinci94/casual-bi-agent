@@ -97,6 +97,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [680, 420]
+    },
+    {
+      "parameters": {},
+      "name": "Nichts zu melden",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "notes": "Wenn der Cron keine fälligen Outcomes findet, beenden wir still — kein Slack-Spam an Tagen ohne Aktivität."
     }
   ],
   "connections": {
@@ -138,7 +146,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Nichts zu melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
