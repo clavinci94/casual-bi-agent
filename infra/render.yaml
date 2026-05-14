@@ -5,14 +5,24 @@
 #   - r-causal:  CausalImpact service (R + Plumber)
 #   - hitl:      Streamlit HITL approval UI
 #
-# Database is external (Neon). Set DATABASE_URL via Render's
-# environment-group "biq-secrets" with the Neon connection string.
+# Database is external (Neon). Frontend (Next.js) is hosted on Vercel
+# separately — see infra/deploy.md for the Vercel setup.
+#
+# Secrets live in the Render env group "biq-secrets". Required keys:
+#   DATABASE_URL=postgresql+psycopg://...neon.tech/...?sslmode=require
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   BIQ_API_KEY=...                       (machine auth for n8n/scripts)
+#   BIQ_JWT_JWKS_URL=https://<tenant>.eu.auth0.com/.well-known/jwks.json
+#   BIQ_JWT_ISSUER=https://<tenant>.eu.auth0.com/
+#   BIQ_JWT_AUDIENCE=https://api.causal-bi.local
+#   SHOPIFY_*                             (only if hitting live Shopify)
+#   TAVILY_API_KEY                        (only if running Markt-Radar)
 #
 # After connecting this repo to Render:
-#   1. Create an env group called "biq-secrets" with:
-#        DATABASE_URL=postgresql+psycopg://...neon.tech/...?sslmode=require
-#        ANTHROPIC_API_KEY=sk-ant-...
+#   1. Create the "biq-secrets" env group with the keys above.
 #   2. Render Blueprint -> link to this repo -> apply.
+#   3. Apply pending Alembic migrations (see deploy.md).
+#   4. Update Auth0 dashboard with the Vercel callback URLs.
 
 services:
   - type: web
@@ -29,6 +39,11 @@ services:
           type: pserv
           name: biq-r-causal
           property: hostport
+      # Auth mode — bearer_jwt validates Auth0 access-tokens against the
+      # tenant's JWKS. The X-API-Key fallback (see api/auth.py) lets
+      # machine callers like n8n use a shared secret.
+      - key: BIQ_AUTH_MODE
+        value: bearer_jwt
       - fromGroup: biq-secrets
 
   - type: pserv

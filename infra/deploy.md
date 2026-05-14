@@ -8,7 +8,8 @@
 | FastAPI backend (agents, MCP server, audit) | **Render** web service | Docker, autodeploy from GitHub |
 | R Plumber service (CausalImpact) | **Render** private service | Internal HTTP, no public exposure |
 | Streamlit HITL UI | **Render** web service | Public, behind auth |
-| n8n workflow runner | **Render** web service (optional) | Cron + integrations |
+| Next.js dashboard | **Vercel** | Native Next.js host, edge caching, free tier |
+| n8n workflow runner | local Docker for now | crons can move to n8n.cloud later |
 
 ## One-time setup
 
@@ -38,8 +39,40 @@
 3. Create env-group **biq-secrets**:
    - `DATABASE_URL` = Neon pooled connection string
    - `ANTHROPIC_API_KEY` = your Anthropic key
+   - `BIQ_API_KEY` = shared secret for machine callers (n8n, scripts)
+   - `BIQ_JWT_JWKS_URL` = `https://<tenant>.eu.auth0.com/.well-known/jwks.json`
+   - `BIQ_JWT_ISSUER` = `https://<tenant>.eu.auth0.com/` (trailing slash matters)
+   - `BIQ_JWT_AUDIENCE` = `https://api.causal-bi.local` (must match `AUTH0_AUDIENCE` on Vercel)
    - `LANGFUSE_*` if using Langfuse for observability
 4. Hit Apply.
+
+### 4. Vercel (Next.js frontend)
+
+1. Account at <https://vercel.com>, connect the same GitHub repo.
+2. **Import Project** → pick the repo → Vercel auto-detects Next.js
+   under `frontend/`. Set the **Root Directory** to `frontend`.
+3. **Environment Variables** (copy from `frontend/.env.local.example`):
+   - `NEXT_PUBLIC_API_URL` = `https://biq-api.onrender.com`
+   - `AUTH0_SECRET` = `openssl rand -hex 32`
+   - `AUTH0_BASE_URL` = the Vercel deployment URL (e.g. `https://causal-bi.vercel.app`)
+   - `AUTH0_ISSUER_BASE_URL` = `https://<tenant>.eu.auth0.com`
+   - `AUTH0_CLIENT_ID` / `AUTH0_CLIENT_SECRET` = from Auth0 Dashboard
+   - `AUTH0_AUDIENCE` = `https://api.causal-bi.local` (same as backend `BIQ_JWT_AUDIENCE`)
+   - `AUTH0_SCOPE` = `openid profile email`
+4. Hit Deploy.
+
+### 5. Auth0 dashboard (production URLs)
+
+After Vercel gives you the deployment URL (e.g. `https://causal-bi.vercel.app`):
+
+1. <https://manage.auth0.com> → Applications → your app → Settings
+2. **Allowed Callback URLs**: add `https://causal-bi.vercel.app/auth/callback`
+3. **Allowed Logout URLs**: add `https://causal-bi.vercel.app`
+4. **Allowed Web Origins**: add `https://causal-bi.vercel.app`
+5. Save.
+
+Both `http://localhost:3000/...` (for dev) and the Vercel URL must be in
+the lists at the same time.
 
 ## First-time data load
 
@@ -59,6 +92,28 @@ DATABASE_URL=<neon-url> make db-simulate SIM_ARGS="--all"
 
 Neon's free tier compute auto-pauses after 5 min idle. First request after
 pause has a ~2s cold start.
+
+## Shipping a new release (applying migrations + env updates)
+
+When you push features that need DB migrations or new env vars (this
+covers everything from Alembic 0005 onward — Auth0 / system_config /
+Shopify columns / outcome-backfill):
+
+```bash
+# 1. Apply pending Alembic migrations to Neon.
+#    alembic.ini uses relative paths, so run from the backend directory.
+cd backend
+DATABASE_URL=<neon-url> alembic upgrade head
+cd ..
+
+# 2. If env vars changed: edit the Render env group "biq-secrets" in
+#    the dashboard, then trigger a Manual Deploy on biq-api so the new
+#    values get picked up. Same on Vercel for any AUTH0_* changes.
+
+# 3. Verify the new endpoints.
+curl https://biq-api.onrender.com/healthz
+curl -H "X-API-Key: $BIQ_API_KEY" https://biq-api.onrender.com/api/settings
+```
 
 ## Deploy checks
 
@@ -90,7 +145,12 @@ commit**.
 - The audit trail in `audit.*` grows with every run. Add a retention job
   (cron in n8n) deleting `audit.agent_steps` older than 90 days when needed.
 - R service is stateless; safe to restart anytime.
-- HITL UI sessions are non-persistent (Streamlit). Reviewer name is just a
-  text field today — add SSO before exposing to real users.
+- The Streamlit HITL UI is a legacy fallback; the Next.js dashboard
+  (Vercel) is the primary surface and is gated by Auth0 SSO. Reviewers
+  log in with their organisation accounts.
 - All side-effect tools are routed through the HITL queue; the LLM cannot
   send email or modify DB state directly.
+- n8n crons (daily briefing, outcome measurement) currently run locally.
+  When moving them to production, see `n8n/workflows/*.json` — replace
+  `host.docker.internal` with `biq-api.onrender.com` and supply
+  `X-API-Key` from the `BIQ_API_KEY` secret.
