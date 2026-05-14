@@ -65,7 +65,7 @@ def refresh() -> dict[str, Any]:
     """Force-generate a fresh briefing, ignoring any cache for today.
 
     Cron workflows call this. The model tier is read from system_config
-    so /settings can dial cost down to Haiku (~10× cheaper) without a
+    so /settings can dial cost down to Haiku (~10x cheaper) without a
     redeploy.
     """
     try:

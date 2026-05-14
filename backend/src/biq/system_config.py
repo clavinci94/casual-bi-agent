@@ -102,7 +102,7 @@ def set_data_source(value: str, *, updated_by: str | None = None) -> None:
 
 # Tier names exposed in the UI mapped to the concrete Claude model IDs the
 # Anthropic SDK accepts. Sonnet is the default — it's the balance point
-# between briefing quality and cost. Haiku drops cost ~10× at some quality
+# between briefing quality and cost. Haiku drops cost ~10x at some quality
 # loss; Opus doubles cost for marginal gains on short summaries.
 BRIEFING_MODEL_TIERS: dict[str, str] = {
     "haiku": "claude-haiku-4-5",

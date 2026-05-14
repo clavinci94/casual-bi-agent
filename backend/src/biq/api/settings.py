@@ -45,7 +45,7 @@ class SystemSettings(BaseModel):
         default="sonnet",
         description=(
             "Anthropic model tier used by the daily briefing agent. 'haiku' "
-            "is cheapest (~10× less than Sonnet), 'sonnet' is the default "
+            "is cheapest (~10x less than Sonnet), 'sonnet' is the default "
             "quality-cost balance, 'opus' is highest-quality for thorough "
             "summaries. Switch on the fly when running costs need cutting."
         ),
