@@ -237,10 +237,12 @@ function OutcomeField({
     const observed = fmtSignedPct(o.observed_effect);
     const expected =
       o.expected_effect != null ? fmtSignedPct(o.expected_effect) : null;
+    const metric = o.metric ?? insight.properties.kpi ?? null;
+    const label = metric ? `Wirkung (${metric})` : "Wirkung";
     const detail = expected
       ? `Beobachtet ${observed} · Erwartet ${expected}`
       : `Beobachtet ${observed}`;
-    return <FieldRow icon={Activity} label="Wirkung" value={detail} />;
+    return <FieldRow icon={Activity} label={label} value={detail} />;
   }
 
   if (!d || d.decision !== "approve") {

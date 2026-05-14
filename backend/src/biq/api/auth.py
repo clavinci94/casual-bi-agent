@@ -121,11 +121,18 @@ def require_api_key(
     if mode == "disabled":
         return
     if mode == "bearer_jwt":
-        token = bearer.credentials if bearer is not None else None
-        claims = _require_bearer(token)
-        # Stash the verified claims on the request so route handlers can
-        # read `request.state.user` if they want to.
-        request.state.user = claims
-        return
+        # Bearer is the primary path. Fall back to X-API-Key for
+        # machine callers (n8n cron, scripts, smoke tests) — same
+        # shared secret as in api_key mode, just lets the Auth0 flow
+        # remain user-facing without locking out automation.
+        if bearer is not None:
+            claims = _require_bearer(bearer.credentials)
+            request.state.user = claims
+            return
+        if api_key is not None:
+            _require_api_key(api_key)
+            request.state.user = {"sub": "service:api-key"}
+            return
+        raise HTTPException(status_code=401, detail="missing Bearer or X-API-Key")
     # default: api_key
     _require_api_key(api_key)

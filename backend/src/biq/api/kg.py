@@ -118,3 +118,75 @@ def decisions_due_for_outcome(
     Outcome hasn't been measured yet. Power for the n8n cron job and
     diagnostics."""
     return kg_tools.find_decisions_due_for_outcome(limit=limit)
+
+
+class MeasureDueRequest(BaseModel):
+    post_period_days: Annotated[int, Field(ge=3, le=180)] = 30
+    limit: Annotated[int, Field(ge=1, le=200)] = 50
+
+
+class MeasuredOutcomeItem(BaseModel):
+    decision_id: str
+    status: str
+    metric: str | None = None
+    observed_effect: float | None = None
+    expected_effect: float | None = None
+    observed_rate: float | None = None
+    baseline_rate: float | None = None
+    period_start: str | None = None
+    period_end: str | None = None
+    outcome_id: str | None = None
+    anchored_to_data: bool | None = None
+    error: str | None = None
+    reason: str | None = None
+
+
+class MeasureDueResponse(BaseModel):
+    measured: list[MeasuredOutcomeItem]
+    skipped: list[MeasuredOutcomeItem]
+    total_due: int
+
+
+@router.post("/decisions/measure-due", response_model=MeasureDueResponse)
+def measure_due_outcomes(
+    payload: MeasureDueRequest | None = None,
+) -> MeasureDueResponse:
+    """Bulk-measure all approved Decisions whose outcome window has
+    elapsed but which don't yet have a recorded Outcome.
+
+    Designed for an n8n daily cron — POSTs with no body picks the
+    defaults (30-day post-period, 50 decisions per run). Each decision
+    is measured independently; a failure on one doesn't block the rest.
+    """
+    p = payload or MeasureDueRequest()
+    due = kg_tools.find_decisions_due_for_outcome(limit=p.limit)
+
+    measured: list[MeasuredOutcomeItem] = []
+    skipped: list[MeasuredOutcomeItem] = []
+
+    for row in due:
+        decision_id = row["decision_id"]
+        result = kg_tools.measure_outcome_for_decision(
+            decision_id, post_period_days=p.post_period_days
+        )
+        item = MeasuredOutcomeItem(
+            decision_id=decision_id,
+            status=result.get("status", "unknown"),
+            metric=result.get("metric"),
+            observed_effect=result.get("observed_effect"),
+            expected_effect=result.get("expected_effect"),
+            observed_rate=result.get("observed_rate"),
+            baseline_rate=result.get("baseline_rate"),
+            period_start=result.get("period_start"),
+            period_end=result.get("period_end"),
+            outcome_id=result.get("outcome_id"),
+            anchored_to_data=result.get("anchored_to_data"),
+            error=result.get("error"),
+            reason=result.get("reason"),
+        )
+        if result.get("status") == "measured":
+            measured.append(item)
+        else:
+            skipped.append(item)
+
+    return MeasureDueResponse(measured=measured, skipped=skipped, total_due=len(due))

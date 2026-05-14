@@ -1,0 +1,149 @@
+{
+  "name": "Causal BI · Daily Outcome Measurement 06:00",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Daily 06:00",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/api/kg/decisions/measure-due",
+        "method": "POST",
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "REPLACE_WITH_BIQ_API_KEY"
+              }
+            ]
+          },
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"post_period_days\": 30,\n  \"limit\": 50\n}"
+      },
+      "name": "POST /api/kg/decisions/measure-due",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 30000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "anything-measured",
+              "leftValue": "={{ ($json.measured || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "Anything measured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"text\": \"{{ ':chart_with_upwards_trend: *Causal BI · Outcomes gemessen*\\n' + ($json.measured || []).length + ' Empfehlungen wurden in den letzten 24h fällig und sind jetzt gemessen.\\n\\n' + ($json.measured || []).slice(0,5).map(m => '• ' + (m.metric || 'metric') + ': beobachtet ' + (m.observed_effect !== null ? (m.observed_effect * 100).toFixed(1) + '%' : 'n/a') + ' (erwartet ' + (m.expected_effect !== null ? (m.expected_effect * 100).toFixed(1) + '%' : 'n/a') + ')').join('\\n') + '\\n\\n<http://localhost:3000/insights|Alle Lernerfahrungen →>' }}\"\n}"
+      },
+      "name": "Slack · Outcomes Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_SLACK_WEBHOOK_URL",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"text\": \"{{ ':warning: *Causal BI · Outcome-Messung fehlgeschlagen*\\nDer 06:00-Cron konnte fällige Outcomes nicht messen.\\n```\\n' + ($json.error || $json.message || JSON.stringify($json).slice(0, 500)) + '\\n```\\nBitte Backend-Logs prüfen oder manuell auf <http://localhost:3000/insights|Lernerfahrungen> nachmessen.' }}\"\n}"
+      },
+      "name": "Slack · Error Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 420]
+    }
+  ],
+  "connections": {
+    "Daily 06:00": {
+      "main": [
+        [
+          {
+            "node": "POST /api/kg/decisions/measure-due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /api/kg/decisions/measure-due": {
+      "main": [
+        [
+          {
+            "node": "Anything measured?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack · Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything measured?": {
+      "main": [
+        [
+          {
+            "node": "Slack · Outcomes Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Zurich"
+  }
+}
