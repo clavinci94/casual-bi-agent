@@ -78,9 +78,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      {/* Enterprise hero — what the platform does + business value. */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-aurora p-10 sm:p-14">
-        <div className="max-w-3xl">
+      {/* Enterprise hero — same accent-glow treatment as /home so the
+       * dashboard greeter and the welcome page read as one design system. */}
+      <section className="relative overflow-hidden rounded-[2rem] bg-[var(--color-surface)] p-10 sm:p-14">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 size-72 rounded-full bg-[color-mix(in_oklch,var(--color-accent)_22%,transparent)] blur-3xl"
+        />
+        <div className="relative max-w-3xl">
           <div className="label-micro">Aktueller Plan</div>
 
           <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight mt-3 leading-[1.05]">

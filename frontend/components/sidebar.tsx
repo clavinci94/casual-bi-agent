@@ -8,6 +8,7 @@ import {
   BookOpen,
   CompassIcon,
   HomeIcon,
+  LayoutDashboard,
   LogIn,
   LogOut,
   RadarIcon,
@@ -25,7 +26,8 @@ type NavItem = {
 };
 
 const PRIMARY: NavItem[] = [
-  { href: "/", label: "Übersicht", icon: HomeIcon },
+  { href: "/home", label: "Home", icon: HomeIcon },
+  { href: "/", label: "Übersicht", icon: LayoutDashboard },
   { href: "/investigate", label: "Neue Analyse", icon: SparklesIcon },
   { href: "/kpis", label: "Kennzahlen", icon: BarChart3 },
   { href: "/markt-radar", label: "Markt-Radar", icon: RadarIcon },

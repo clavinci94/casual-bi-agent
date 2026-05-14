@@ -28,9 +28,13 @@
   --color-warning: oklch(0.74 0.13 75);      /* peach */
   --color-danger: oklch(0.60 0.18 25);       /* warm red */
 
-  /* Aurora glow used in hero / briefing card backgrounds */
-  --color-aurora-1: oklch(0.92 0.06 30);     /* soft peach */
-  --color-aurora-2: oklch(0.90 0.05 55);     /* soft melon */
+  /* Aurora glow used in hero / briefing card backgrounds — visible warm
+   * gray wash instead of the previous peach/melon. Banners stay
+   * prominent but read as a neutral surface, not as pink. Status
+   * colors (danger/warning/success) keep their hue; only the aurora
+   * wash is grayscale. */
+  --color-aurora-1: oklch(0.86 0.006 80);
+  --color-aurora-2: oklch(0.80 0.008 80);
 
   /* Larger rounding — Tavily uses ~24-32px on big cards */
   --radius-card: 1.5rem;                     /* 24px — primary surface rounding */
