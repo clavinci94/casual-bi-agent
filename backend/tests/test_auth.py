@@ -18,7 +18,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -84,7 +83,7 @@ def _sign_jwt(
     exp_offset_seconds: int = 300,
     extra_claims: dict[str, Any] | None = None,
 ) -> str:
-    now = _dt.datetime.now(_dt.timezone.utc)
+    now = _dt.datetime.now(_dt.UTC)
     payload: dict[str, Any] = {
         "iss": issuer,
         "aud": audience,
