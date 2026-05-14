@@ -219,6 +219,15 @@ def record_node(state: State) -> dict[str, Any]:
     run_id = state.get("run_id")
     if not run_id:
         return {}
+
+    # Mirror the rich KG-side metadata so the outcome loop can later measure
+    # what we recommended. Without these fields measure_outcome_for_decision
+    # returns 'unsupported_kpi' and the n8n cron skips the decision forever.
+    causal = state.get("causal_estimate") or {}
+    kg_extra: dict[str, Any] = {"kpi": "conversion_rate"}
+    if "rel_effect" in causal:
+        kg_extra["relative_change"] = causal["rel_effect"]
+
     rec_id = log_recommendation(
         run_id=run_id,
         title=state["finding_title"],
@@ -228,6 +237,8 @@ def record_node(state: State) -> dict[str, Any]:
         risk_level=state["risk_level"],
         component=state.get("target_device"),
         period=state.get("post_period"),
+        period_prior=state.get("pre_period"),
+        kg_extra=kg_extra,
     )
 
     # Mirror Hypothesis + Evidence into the KG so future runs can learn.
