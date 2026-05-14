@@ -26,6 +26,14 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "causal: requires R service on port 8765")
+    # Force a known auth baseline for the whole suite so tests don't have
+    # to care which BIQ_AUTH_MODE the developer happens to have in their
+    # local .env. Individual auth tests opt into bearer_jwt / api_key by
+    # monkeypatching settings.biq_auth_mode for the scope of that test.
+    from biq.config import settings
+
+    settings.biq_auth_mode = "api_key"
+    settings.biq_api_key = None
 
 
 @pytest.fixture(scope="session")
