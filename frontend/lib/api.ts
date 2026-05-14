@@ -293,20 +293,24 @@ export const api = {
 
   // Manager-visible system settings (audit.system_config)
   getSystemSettings: () =>
-    request<{ briefing_daily_active: boolean; data_source: "sim" | "live" }>(
-      "/api/settings",
-    ),
+    request<{
+      briefing_daily_active: boolean;
+      data_source: "sim" | "live";
+      briefing_model: "haiku" | "sonnet" | "opus";
+    }>("/api/settings"),
   updateSystemSettings: (patch: {
     briefing_daily_active?: boolean;
     data_source?: "sim" | "live";
+    briefing_model?: "haiku" | "sonnet" | "opus";
   }) =>
-    request<{ briefing_daily_active: boolean; data_source: "sim" | "live" }>(
-      "/api/settings",
-      {
-        method: "PUT",
-        body: JSON.stringify(patch),
-      },
-    ),
+    request<{
+      briefing_daily_active: boolean;
+      data_source: "sim" | "live";
+      briefing_model: "haiku" | "sonnet" | "opus";
+    }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
 
   // investigations
   startLlmInvestigation: (payload: {

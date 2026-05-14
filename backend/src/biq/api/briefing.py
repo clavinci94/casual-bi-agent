@@ -55,7 +55,7 @@ def today() -> dict[str, Any]:
     if cached is not None:
         return cached
     try:
-        return generate_briefing(force_refresh=False)
+        return generate_briefing(force_refresh=False, model=system_config.briefing_model())
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -64,10 +64,11 @@ def today() -> dict[str, Any]:
 def refresh() -> dict[str, Any]:
     """Force-generate a fresh briefing, ignoring any cache for today.
 
-    Cron workflows call this. Cost is one Sonnet call (~CHF 0.10-0.15)
-    plus all six signal fetches.
+    Cron workflows call this. The model tier is read from system_config
+    so /settings can dial cost down to Haiku (~10× cheaper) without a
+    redeploy.
     """
     try:
-        return generate_briefing(force_refresh=True)
+        return generate_briefing(force_refresh=True, model=system_config.briefing_model())
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

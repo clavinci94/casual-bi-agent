@@ -55,6 +55,7 @@ export default function SettingsPage() {
       />
 
       <DailyBriefingToggle />
+      <BriefingModelSelector />
       <DataSourceToggle />
 
       {!isDisabled ? (
@@ -398,6 +399,125 @@ function ToggleSwitch({
         {busy ? "…" : active ? "Aktiv" : "Pausiert"}
       </span>
     </button>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Briefing model selector — Haiku (cheap) ↔ Sonnet (default) ↔ Opus (premium)
+// ---------------------------------------------------------------------------
+
+type BriefingModelTier = "haiku" | "sonnet" | "opus";
+
+const BRIEFING_MODELS: {
+  value: BriefingModelTier;
+  label: string;
+  cost: string;
+  note: string;
+}[] = [
+  {
+    value: "haiku",
+    label: "Haiku",
+    cost: "~CHF 0.01 / Briefing",
+    note: "Günstig, kürzere Zusammenfassungen — ideal für ruhige Phasen.",
+  },
+  {
+    value: "sonnet",
+    label: "Sonnet",
+    cost: "~CHF 0.10–0.15 / Briefing",
+    note: "Qualität-Kosten-Balance — der Standard.",
+  },
+  {
+    value: "opus",
+    label: "Opus",
+    cost: "~CHF 0.25–0.40 / Briefing",
+    note: "Tiefere Synthese und mehr Nuancen — für entscheidende Tage.",
+  },
+];
+
+function BriefingModelSelector() {
+  const { data, mutate, isLoading } = useSWR(
+    ["system-settings"],
+    () => api.getSystemSettings(),
+    { revalidateOnFocus: false },
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+
+  async function set(next: BriefingModelTier) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const updated = await api.updateSystemSettings({ briefing_model: next });
+      mutate(updated, { revalidate: false });
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const value: BriefingModelTier = data?.briefing_model ?? "sonnet";
+  const current = BRIEFING_MODELS.find((m) => m.value === value);
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="label-micro">Modell-Stufe</div>
+          <h2 className="text-lg font-semibold mt-1">Briefing-Modell</h2>
+          <p className="text-sm text-[var(--color-muted)] mt-2 leading-relaxed max-w-2xl">
+            Wechseln Sie das Anthropic-Modell, das den Tagesbriefing-Agent
+            antreibt. Haiku ist rund <strong>10× günstiger</strong> als Sonnet
+            bei etwas kürzeren Synthesen, Opus liefert die tiefste Analyse für
+            entscheidende Tage. Änderungen greifen beim nächsten Briefing.
+          </p>
+          {err ? (
+            <div className="mt-3">
+              <ErrorMessage error={err} />
+            </div>
+          ) : null}
+        </div>
+        <div className="shrink-0">
+          {isLoading ? (
+            <div className="w-60 h-10 rounded-full bg-[var(--color-surface-sunken)] animate-pulse" />
+          ) : (
+            <div
+              role="group"
+              aria-label="Briefing-Modell wählen"
+              className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] p-1"
+            >
+              {BRIEFING_MODELS.map((m) => {
+                const active = m.value === value;
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={busy}
+                    onClick={() => !active && set(m.value)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+                      active
+                        ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
+                        : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                    }`}
+                  >
+                    {busy && active ? "…" : m.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {data && current ? (
+        <div className="mt-4 rounded-lg bg-[var(--color-surface-sunken)] px-3.5 py-2.5 text-xs leading-relaxed flex items-center justify-between gap-3">
+          <span>{current.note}</span>
+          <Pill tone="neutral">{current.cost}</Pill>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 

@@ -6,11 +6,15 @@ needs to pause a cost-incurring background job without redeploying.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from biq import system_config
 from biq.db import current_data_source
+
+BriefingModelTier = Literal["haiku", "sonnet", "opus"]
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -37,6 +41,15 @@ class SystemSettings(BaseModel):
             ".env and restarting the backend."
         ),
     )
+    briefing_model: BriefingModelTier = Field(
+        default="sonnet",
+        description=(
+            "Anthropic model tier used by the daily briefing agent. 'haiku' "
+            "is cheapest (~10× less than Sonnet), 'sonnet' is the default "
+            "quality-cost balance, 'opus' is highest-quality for thorough "
+            "summaries. Switch on the fly when running costs need cutting."
+        ),
+    )
 
 
 class SystemSettingsPatch(BaseModel):
@@ -45,12 +58,14 @@ class SystemSettingsPatch(BaseModel):
 
     briefing_daily_active: bool | None = None
     data_source: str | None = None
+    briefing_model: BriefingModelTier | None = None
 
 
 def _read() -> SystemSettings:
     return SystemSettings(
         briefing_daily_active=system_config.briefing_daily_active(),
         data_source=current_data_source(),
+        briefing_model=system_config.briefing_model_tier(),  # type: ignore[arg-type]
     )
 
 
@@ -92,5 +107,11 @@ def update_settings(
         from biq.db import engine
 
         engine.dispose()
+
+    if patch.briefing_model is not None:
+        try:
+            system_config.set_briefing_model_tier(patch.briefing_model, updated_by=actor)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return _read()

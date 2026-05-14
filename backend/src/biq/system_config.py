@@ -98,3 +98,42 @@ def set_data_source(value: str, *, updated_by: str | None = None) -> None:
     if value not in ("sim", "live"):
         raise ValueError(f"data_source must be 'sim' or 'live', got {value!r}")
     set_("biq.data_source", {"value": value}, updated_by=updated_by)
+
+
+# Tier names exposed in the UI mapped to the concrete Claude model IDs the
+# Anthropic SDK accepts. Sonnet is the default — it's the balance point
+# between briefing quality and cost. Haiku drops cost ~10× at some quality
+# loss; Opus doubles cost for marginal gains on short summaries.
+BRIEFING_MODEL_TIERS: dict[str, str] = {
+    "haiku": "claude-haiku-4-5",
+    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-4-7",
+}
+_DEFAULT_BRIEFING_TIER = "sonnet"
+
+
+def briefing_model_tier() -> str:
+    """Selected briefing model tier — 'haiku' | 'sonnet' | 'opus'.
+
+    Returned as the short tier name so the UI can render it without
+    knowing the underlying Claude model IDs.
+    """
+    payload = get("briefing.model", {"tier": _DEFAULT_BRIEFING_TIER})
+    if isinstance(payload, dict):
+        tier = payload.get("tier")
+        if tier in BRIEFING_MODEL_TIERS:
+            return tier
+    return _DEFAULT_BRIEFING_TIER
+
+
+def briefing_model() -> str:
+    """Resolved Anthropic model ID for the daily briefing agent."""
+    return BRIEFING_MODEL_TIERS[briefing_model_tier()]
+
+
+def set_briefing_model_tier(tier: str, *, updated_by: str | None = None) -> None:
+    if tier not in BRIEFING_MODEL_TIERS:
+        raise ValueError(
+            f"briefing model tier must be one of {sorted(BRIEFING_MODEL_TIERS)}, got {tier!r}"
+        )
+    set_("briefing.model", {"tier": tier}, updated_by=updated_by)
