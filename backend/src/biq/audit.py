@@ -121,40 +121,70 @@ def log_step(
     agent_name: str,
     action: str,
     input: dict[str, Any] | None = None,
+    parent_step_id: str | None = None,
+    agent_level: str | None = None,
+    model: str | None = None,
 ) -> str:
-    """Insert audit.agent_steps row, return step_id."""
+    """Insert audit.agent_steps row, return step_id.
+
+    Multi-agent extensions are all nullable to keep single-agent callers
+    working unchanged: pass `parent_step_id` to record a sub-worker under
+    its lead, and `agent_level` ('supervisor' | 'lead' | 'sub') so the
+    UI can group rows by hierarchy level.
+    """
     ctx.seq += 1
     step_id = str(uuid.uuid4())
     with engine.begin() as conn:
         conn.execute(
             text(
                 "INSERT INTO audit.agent_steps "
-                "(step_id, run_id, seq, agent_name, action, input) "
-                "VALUES (:step_id, :run_id, :seq, :agent, :action, cast(:input as jsonb))"
+                "(step_id, run_id, parent_step_id, seq, agent_name, "
+                " agent_level, action, input, model) "
+                "VALUES (:step_id, :run_id, :parent, :seq, :agent, "
+                "        :level, :action, cast(:input as jsonb), :model)"
             ),
             {
                 "step_id": step_id,
                 "run_id": ctx.run_id,
+                "parent": parent_step_id,
                 "seq": ctx.seq,
                 "agent": agent_name,
+                "level": agent_level,
                 "action": action,
                 "input": _json(input),
+                "model": model,
             },
         )
     return step_id
 
 
-def finish_step(step_id: str, output: dict[str, Any] | None = None) -> None:
+def finish_step(
+    step_id: str,
+    output: dict[str, Any] | None = None,
+    tokens_in: int | None = None,
+    tokens_out: int | None = None,
+    cost_usd: float | None = None,
+) -> None:
+    """Mark the step finished and (optionally) attach LLM cost telemetry."""
     with engine.begin() as conn:
         conn.execute(
             text(
                 "UPDATE audit.agent_steps "
                 "SET output = cast(:output as jsonb), "
                 "    finished_at = now(), "
-                "    latency_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int "
+                "    latency_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int, "
+                "    tokens_in = COALESCE(:tin, tokens_in), "
+                "    tokens_out = COALESCE(:tout, tokens_out), "
+                "    cost_usd = COALESCE(:cost, cost_usd) "
                 "WHERE step_id = :step_id"
             ),
-            {"step_id": step_id, "output": _json(output)},
+            {
+                "step_id": step_id,
+                "output": _json(output),
+                "tin": tokens_in,
+                "tout": tokens_out,
+                "cost": cost_usd,
+            },
         )
 
 

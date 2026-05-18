@@ -24,17 +24,24 @@ CREATE INDEX ON audit.agent_runs (status);
 CREATE TABLE audit.agent_steps (
     step_id         text PRIMARY KEY DEFAULT gen_random_uuid()::text,
     run_id          text NOT NULL REFERENCES audit.agent_runs(run_id) ON DELETE CASCADE,
+    parent_step_id  text REFERENCES audit.agent_steps(step_id) ON DELETE CASCADE,
     seq             int  NOT NULL,
-    agent_name      text NOT NULL,            -- orchestrator | data | stats | causal | narrative | review
+    agent_name      text NOT NULL,            -- orchestrator | data | stats | causal | narrative | review | supervisor | analyst | strategist | ...
+    agent_level     text CHECK (agent_level IS NULL OR agent_level IN ('supervisor','lead','sub')),
     action          text NOT NULL,
     input           jsonb,
     output          jsonb,
     started_at      timestamptz NOT NULL DEFAULT now(),
     finished_at     timestamptz,
     latency_ms      int,
+    model           text,                     -- which LLM, e.g. 'claude-sonnet-4-6'
+    tokens_in       int,
+    tokens_out      int,
+    cost_usd        numeric(10,4),
     UNIQUE (run_id, seq)
 );
 CREATE INDEX ON audit.agent_steps (run_id);
+CREATE INDEX ON audit.agent_steps (parent_step_id);
 
 CREATE TABLE audit.tool_calls (
     call_id         text PRIMARY KEY DEFAULT gen_random_uuid()::text,
