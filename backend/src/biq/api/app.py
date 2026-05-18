@@ -18,6 +18,7 @@ from biq.api import (
     external,
     health,
     investigations,
+    investigations_assisted,
     kg,
     kpi,
     recommendations,
@@ -79,6 +80,7 @@ app.include_router(recommendations.router, prefix="/api", dependencies=_protecte
 app.include_router(runs.router, prefix="/api", dependencies=_protected)
 app.include_router(kpi.router, prefix="/api", dependencies=_protected)
 app.include_router(investigations.router, prefix="/api", dependencies=_protected)
+app.include_router(investigations_assisted.router, prefix="/api", dependencies=_protected)
 app.include_router(kg.router, prefix="/api", dependencies=_protected)
 app.include_router(admin.router, prefix="/api", dependencies=_protected)
 app.include_router(external.router, prefix="/api", dependencies=_protected)
