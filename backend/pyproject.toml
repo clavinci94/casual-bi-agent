@@ -47,6 +47,7 @@ addopts = "-ra -q -m 'not eval'"
 markers = [
     "causal: integration test requiring the R service on port 8765",
     "eval: LLM-as-judge quality eval. Requires ANTHROPIC_API_KEY; calls the real API.",
+    "live: hits a real external API (e.g. Anthropic). Opt-in via `-m live`.",
 ]
 
 [tool.coverage.run]

@@ -65,5 +65,13 @@ class Settings(BaseSettings):
     #   "live"  — read the real Shopify dev-store synced via shopify-sync
     biq_data_source: str = "sim"
 
+    # Multi-agent run budgets. Hard caps that short-circuit the supervisor
+    # to the reporter when exceeded — protects against runaway investigations
+    # blowing up cost per tenant. Tuned for Sonnet 4.6 + the current 5-lead
+    # plan: a normal run lands around 5k tokens / $0.05, so the defaults
+    # leave 20x headroom for retries before tripping.
+    biq_max_tokens_per_run: int = 100_000
+    biq_max_cost_usd_per_run: float = 2.0
+
 
 settings = Settings()  # type: ignore[call-arg]
