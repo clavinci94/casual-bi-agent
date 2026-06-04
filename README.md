@@ -7,8 +7,6 @@
 
 > Klassische BI zeigt, dass etwas passiert ist. **Causal BI erklärt warum, schlägt vor was zu tun ist, wartet auf menschliche Freigabe und misst danach, ob es funktioniert hat.**
 
-## Kurzfassung
-
 **Causal BI Agent** ist ein agentisches Business-Intelligence-System für E-Commerce- und Shopify-Plus-Unternehmen. Es überwacht Geschäftszahlen nicht nur passiv wie ein Dashboard, sondern untersucht Auffälligkeiten selbstständig, prüft Ursachen statistisch, schreibt eine entscheidungsreife Empfehlung und speichert das spätere Ergebnis als organisationales Gedächtnis.
 
 Das Projekt verbindet vier Dinge, die in klassischen BI-Tools meist getrennt sind:
