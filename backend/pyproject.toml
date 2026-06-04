@@ -42,8 +42,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Skip the eval suite by default — it costs real money. Opt in via `-m eval`.
-addopts = "-ra -q -m 'not eval'"
+# Skip suites that cost real money or hit live external services by default.
+# Opt in via `-m eval` or `-m live`.
+addopts = "-ra -q -m 'not eval and not live'"
 markers = [
     "causal: integration test requiring the R service on port 8765",
     "eval: LLM-as-judge quality eval. Requires ANTHROPIC_API_KEY; calls the real API.",

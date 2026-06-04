@@ -81,7 +81,7 @@ jobs:
       - name: pytest with coverage (fail < 70%)
         working-directory: backend
         run: |
-          uv run pytest -m "not causal" \
+          uv run pytest -m "not causal and not live and not eval" \
             --cov=biq \
             --cov-report=term-missing \
             --cov-report=xml

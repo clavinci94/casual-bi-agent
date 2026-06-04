@@ -8,17 +8,12 @@ is exercised manually via `make investigate`.
 
 from __future__ import annotations
 
-import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from biq.agents import investigator as inv
-
-# A valid-looking key so settings.anthropic_api_key is truthy in tests.
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-used")
-
 
 # --- Helpers ------------------------------------------------------------
 
