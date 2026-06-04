@@ -125,7 +125,7 @@ psql postgresql://causalbi:causalbi@localhost:5433/causalbi \
 
 ## Context an agent needs to know
 
-- **Course context**: this also serves as the deliverable for a BI Bachelor module. The 14 exercises in `docs/course-mapping.md` (TBD) map to features of this system — when adding a feature, check if it also satisfies an exercise so we get double-value.
+- **Course context**: this also serves as the deliverable for a BI Bachelor module. `docs/course-mapping.md` maps the project requirements and Week-11 target picture to concrete project artifacts — when adding a feature, check if it also strengthens the course story so we get double-value.
 - **Currency**: CHF in UI (Swiss audience), but Olist source data is BRL. Convert at ingest with a fixed rate constant; document the rate and date in an ADR.
 - **"Causal" is the differentiator**: when in doubt about what feature to build, ask: does this strengthen the causal-reasoning story? If yes, prioritise.
 - **The audit trail is product, not afterthought**: every recommendation must trace back to its inputs. Don't shortcut this — it's what makes the system trustworthy enough to deploy in a real company.
