@@ -20,6 +20,8 @@ Das Projekt verbindet vier Dinge, die in klassischen BI-Tools meist getrennt sin
 
 Der Demo-Case enthält absichtlich einen `mobile_checkout_v2`-Fehler. Das System findet ihn wieder, schätzt einen kausalen Effekt von **-38.4 %** mit **95 %-CI [-41.8 %, -34.7 %]** und **p = 0.001**, verknüpft den Befund mit dem Release und legt eine Empfehlung in die Freigabe-Queue.
 
+Wichtig: Das System ist nicht nur auf synthetische Demodaten ausgelegt. Ein echter Shopify-Development-Store (`causal-bi-demo.myshopify.com`) wurde bereits angebunden und über die Shopify Admin API getestet. Simulierte Daten und live synchronisierte Shopify-Daten können parallel in derselben Datenbank koexistieren und im Dashboard umgeschaltet werden.
+
 ## Warum das wichtig ist
 
 Viele Unternehmen haben heute genug Dashboards, aber zu wenig Entscheidungen.
@@ -148,8 +150,8 @@ Die Differenzierung liegt nicht in einem einzelnen Feature, sondern in der Kette
 ```mermaid
 flowchart TB
     subgraph L1["1 Data Sources"]
-        OLIST["Olist Demo-Daten"]
-        SHOPIFY["Shopify Admin API"]
+        OLIST["Olist + simulierte Demo-Daten"]
+        SHOPIFY["Shopify Admin API<br/>causal-bi-demo.myshopify.com"]
         OPS["Releases, Kampagnen, Support"]
         EXT["News, Trends, Markt, Kalender"]
     end
@@ -208,7 +210,8 @@ Mehr Details stehen in [`docs/architecture.md`](docs/architecture.md) und [`docs
 | Postgres-Schemas `raw`, `kpi`, `docs`, `kg`, `audit` | Implementiert |
 | KPI Semantic Layer mit Governance | Implementiert |
 | Olist-Demo-Daten und synthetischer Mobile-Checkout-Bug | Implementiert |
-| Shopify-Connector und Dev-Store-Pfad | Implementiert |
+| Shopify-Connector mit getesteter Dev-Store-Anbindung | Implementiert |
+| Sim/Live-Datenumschaltung für Shopify-KPIs | Implementiert |
 | Anomalie-Erkennung | Implementiert |
 | R-Service mit CausalImpact, E-Value und Power-Analyse | Implementiert |
 | LLM-Investigator mit Tool-Use | Implementiert |
@@ -218,20 +221,22 @@ Mehr Details stehen in [`docs/architecture.md`](docs/architecture.md) und [`docs
 | HITL-Freigabe und Audit Trail | Implementiert |
 | Knowledge Graph mit Insight, Decision, Evidence, Outcome | Implementiert |
 | Eval-Harness und CI | Implementiert |
-| SSO, Multi-Tenant, White-Label | Roadmap |
+| Cloud-Deployment mit Render/Neon/Vercel-Architektur | Bereits deployed, erprobt und dokumentiert |
+| SSO, Multi-Tenant, White-Label | Ausbaufähige nächste Schritte |
 
-## Demo für die Präsentation
+## Datenquellen und Betriebsstand
 
-Die Präsentation sollte nicht mit Technik starten, sondern mit der Entscheidungsschleife:
+Das Projekt unterstützt drei Datenmodi:
 
-1. **Problem zeigen**: Mobile Conversion fällt, klassisches Dashboard zeigt nur den Rückgang.
-2. **Agent starten**: Investigation fragt KPI-Slices, Releases, Kampagnen und historische Entscheidungen ab.
-3. **Kausalität zeigen**: CausalImpact schätzt den Effekt des Checkout-Releases.
-4. **Empfehlung zeigen**: Der Agent schreibt eine Management-Notiz mit Begründung und nächster Massnahme.
-5. **HITL zeigen**: Der Mensch genehmigt oder lehnt ab.
-6. **Memory zeigen**: Entscheidung und späteres Outcome landen im Knowledge Graph.
+| Modus | Zweck | Stand |
+|---|---|---|
+| **Olist + Simulator** | Reproduzierbarer End-to-End-Case mit bekannter Ursache | Vollständig integriert |
+| **Simulierter Shopify-Plus-Shop** | Realistischere Shop-KPIs über `raw.shopify_*` und `kpi.shopify_*` | Vollständig integriert |
+| **Echter Shopify-Dev-Store** | Admin-API-Sync gegen `causal-bi-demo.myshopify.com` | Angebunden und getestet |
 
-Für ein vollständiges Verteidigungsdrehbuch siehe [`docs/strategy/thesis-defense.md`](docs/strategy/thesis-defense.md). Die Abdeckung der Projektvorgaben ist in [`docs/course-mapping.md`](docs/course-mapping.md) zusammengefasst.
+Der Shopify-Pfad ist bewusst so gebaut, dass Demo- und Live-Daten nebeneinander liegen. Jede Zeile in `raw.shopify_orders`, `raw.shopify_customers` und `raw.shopify_products` trägt eine `data_source`-Markierung (`sim` oder `live`). Die `kpi.shopify_*`-Views lesen über eine Session-Konfiguration genau den aktuell gewählten Datenmodus. Dadurch kann dasselbe Dashboard wahlweise mit reproduzierbaren Demodaten oder mit echten Shopify-Sync-Daten arbeiten, ohne Views umzubauen oder Daten zu löschen.
+
+Der Betriebsstand geht über lokale Ausführung hinaus: Backend, R-Service und HITL-Service sind über Docker/Render beschrieben, die Datenplattform ist für Neon Postgres ausgelegt, und das Next.js-Dashboard ist Vercel-ready. Der Stack wurde im Projektkontext bereits deployed und erprobt; die Infrastruktur-Dateien bleiben im Repo, damit der Stand reproduzierbar und ausbaufähig ist. Der technische Ablauf ist in [`infra/deploy.md`](infra/deploy.md) dokumentiert.
 
 ## Lokaler Quickstart
 
@@ -264,18 +269,6 @@ make hitl
 make investigate Q="What happened to mobile conversion rate in early May 2018?"
 ```
 
-## Produktion
-
-Deployment ist für Render + Neon vorbereitet:
-
-- `biq-api`: FastAPI Backend
-- `biq-r-causal`: R Plumber CausalImpact Service
-- `biq-hitl`: Streamlit HITL Queue
-- Neon Postgres: zentrale Datenplattform
-- n8n: Cron, externe Workflows und Integrationen
-
-Siehe [`infra/deploy.md`](infra/deploy.md) für die Schritt-für-Schritt-Anleitung.
-
 ## Technologie
 
 | Bereich | Technologie |
@@ -298,10 +291,9 @@ Siehe [`infra/deploy.md`](infra/deploy.md) für die Schritt-für-Schritt-Anleitu
 | [`docs/architecture.md`](docs/architecture.md) | 5-Layer-Architektur und Datenflüsse |
 | [`docs/clean-architecture.md`](docs/clean-architecture.md) | Domain, Application, Interface und Infrastructure Layer |
 | [`docs/kpi-catalog.yaml`](docs/kpi-catalog.yaml) | KPI-Semantik als Source of Truth |
-| [`docs/strategy/business-plan.md`](docs/strategy/business-plan.md) | Markt, Positionierung, Pricing und ROI |
-| [`docs/strategy/thesis-defense.md`](docs/strategy/thesis-defense.md) | Präsentationsstruktur und Demo-Drehbuch |
 | [`docs/shopify-setup.md`](docs/shopify-setup.md) | Shopify-Dev-Store-Anbindung |
 | [`docs/mcp-clients.md`](docs/mcp-clients.md) | MCP-Setup für Claude Desktop, Cursor, Cline und n8n |
+| [`infra/deploy.md`](infra/deploy.md) | Cloud-Betrieb mit Render, Neon und Vercel |
 
 ## Bewusste Grenzen
 

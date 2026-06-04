@@ -96,27 +96,28 @@ Eintrags in `raw.shopify_sync_log` pro Entity als `updated_at_min`.
 ihn in deine n8n-Instanz, dann läuft `make shopify-sync-incremental`
 stündlich.
 
-## 7. KPIs gegen die Shopify-Daten (zukünftiger Schritt)
+## 7. KPIs gegen die Shopify-Daten
 
-Im jetzigen Stand sind die Olist-KPI-Views unverändert. Wenn du
-Shopify-spezifische Views willst, ist das ein eigener Schritt:
+Shopify-spezifische KPI-Views sind inzwischen umgesetzt. Die wichtigsten
+Views sind:
 
-```sql
--- Beispiel: Tagesumsatz aus Shopify-Bestellungen
-CREATE VIEW kpi.shopify_orders_daily AS
-SELECT
-    DATE(created_at)         AS day,
-    COUNT(*)                 AS orders,
-    SUM(total_price)::float  AS revenue,
-    AVG(total_price)::float  AS aov
-FROM raw.shopify_orders
-WHERE cancelled_at IS NULL
-GROUP BY DATE(created_at);
+- `kpi.shopify_orders_daily`
+- `kpi.shopify_aov_daily`
+- `kpi.shopify_refund_rate_weekly`
+- `kpi.shopify_repeat_rate_weekly`
+
+Demo- und Live-Daten koexistieren in denselben `raw.shopify_*` Tabellen.
+Jede Zeile trägt `data_source = 'sim'` oder `data_source = 'live'`.
+Die KPI-Views lesen die aktive Quelle über die Postgres-Session-Variable
+`biq.data_source`, die vom Backend anhand der Systemkonfiguration gesetzt
+wird. So kann das Dashboard zwischen simuliertem Shopify-Shop und echtem
+Dev-Store-Sync wechseln, ohne Daten zu löschen oder Views umzubauen.
+
+Der Anomaly-Detector kann Shopify-Tagesbestellungen pro Kanal prüfen:
+
+```bash
+uv run python scripts/detect_anomalies.py --source shopify
 ```
-
-→ Dann in `frontend/lib/kpi-metadata.ts` einen Eintrag dafür ergänzen
-und im Anomaly-Detector `kpi="shopify_revenue"` als zweites Ziel-KPI
-freigeben.
 
 ## Troubleshooting
 
