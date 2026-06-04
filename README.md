@@ -1,7 +1,7 @@
 # Causal BI Agent
 
-[![CI](https://github.com/clavinci94/casual-bi-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/clavinci94/casual-bi-agent/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)](backend/tests/)
+[![CI](https://github.com/clavinci94/casual-bi-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/clavinci94/casual-bi-agent/actions/workflows/ci.yml?query=branch%3Amain)
+[![Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -105,7 +105,7 @@ Strict layering — see [`docs/clean-architecture.md`](docs/clean-architecture.m
 | Rate limiting | slowapi (in-memory, configurable backend) |
 | Local dev | Docker Compose + uv + Makefile |
 | Deploy | Render Blueprint + Neon |
-| CI | GitHub Actions (lint + tests with ≥75 % coverage + Docker builds) |
+| CI | GitHub Actions (lint + tests with ≥70 % coverage + Docker builds) |
 
 ## Local quickstart
 
