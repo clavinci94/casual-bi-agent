@@ -110,6 +110,18 @@ Damit kann das System unterscheiden, ob ein Problem intern entstanden ist oder d
 
 <p align="center"><em>Markt-Radar: interne Shop-KPIs werden mit DACH-Markt, Kalender, Plattformstatus und externen Signalen verbunden.</em></p>
 
+**Automatisiertes Tagesbriefing per n8n.** Jeden Werktag um 07:00 Europe/Zurich startet n8n den Briefing-Workflow und ruft `POST /api/briefing/refresh` auf. Dadurch wird das Briefing vorbereitet, bevor der erste Manager das Dashboard öffnet. Der Agent verdichtet die wichtigsten Signale aus dem Vortag und dem frühen Morgen: DACH-Märkte, Shopify-Plattformstatus, Commerce-Kalender, regionale News, Google Trends, eigene Top-Kategorien und Shopify-KPIs der letzten 14 Tage.
+
+Der Workflow ist bewusst nicht als lauter Dauer-Alert gebaut. Nur wenn mindestens ein Signal `urgency: high` trägt, wird eine Slack-Zusammenfassung mit **Was ist passiert?**, **Warum ist es relevant?** und **Welche Aktion ist sinnvoll?** verschickt. Bei technischen Fehlern gibt es nach drei Retries einen separaten Error-Alert. So bekommt das Management morgens eine entscheidungsorientierte Zusammenfassung, während normale Tage ruhig bleiben und trotzdem im Markt-Radar auditiert und abrufbar sind.
+
+<p align="center">
+  <img src="docs/assets/readme/n8n-workflow.png" alt="n8n Workflow für das tägliche Causal BI Tagesbriefing mit 07:00 Cron, API Refresh, Dringlichkeitsprüfung und Slack Benachrichtigung" width="100%">
+</p>
+
+<p align="center"><em>n8n Daily Briefing: der Manager erhält morgens nur die wichtigsten, handlungsrelevanten Signale; das vollständige Briefing bleibt im Markt-Radar verfügbar.</em></p>
+
+Der Mehrwert liegt in der Verschiebung von reaktiver Analyse zu proaktiver Führung: Statt erst im Dashboard nach Abweichungen zu suchen, erhält der Entscheider bereits vor dem Tagesgeschäft eine priorisierte Lageeinschätzung. Gleichzeitig reduziert der Cache die Wartezeit im Frontend, der Audit Trail speichert die verwendeten Eingangssignale, und die Modellstufe kann in den Einstellungen kostenbewusst zwischen Haiku, Sonnet und Opus gewählt werden.
+
 ### 3. Entscheidungen werden nicht vergessen
 
 Der Knowledge Graph macht aus einzelnen Analysen ein organisationales Gedächtnis:
@@ -240,6 +252,7 @@ Mehr Details stehen in [`docs/architecture.md`](docs/architecture.md) und [`docs
 | LangGraph Multi-Agent-Pipeline | Implementiert |
 | FastAPI mit OpenAPI | Implementiert |
 | Next.js/Plotly Dashboard inklusive Markt-Radar | Implementiert |
+| n8n Tagesbriefing 07:00 mit Slack-Alert | Implementiert |
 | HITL-Freigabe und Audit Trail | Implementiert |
 | Knowledge Graph mit Insight, Decision, Evidence, Outcome | Implementiert |
 | Eval-Harness und CI | Implementiert |
@@ -327,6 +340,8 @@ make investigate Q="What happened to mobile conversion rate in early May 2018?"
 | [`docs/kpi-catalog.yaml`](docs/kpi-catalog.yaml) | KPI-Semantik als Source of Truth |
 | [`docs/shopify-setup.md`](docs/shopify-setup.md) | Shopify-Dev-Store-Anbindung |
 | [`docs/mcp-clients.md`](docs/mcp-clients.md) | MCP-Setup für Claude Desktop, Cursor, Cline und n8n |
+| [`n8n/README.md`](n8n/README.md) | n8n-Workflows für Tagesbriefing, Anomalie-Scan und Outcome-Messung |
+| [`n8n/workflows/daily-briefing.json`](n8n/workflows/daily-briefing.json) | Importierbarer 07:00-Tagesbriefing-Workflow |
 | [`infra/deploy.md`](infra/deploy.md) | Cloud-Betrieb mit Render, Neon und Vercel |
 
 ## Bewusste Grenzen
