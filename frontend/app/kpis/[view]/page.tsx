@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 import { useKpiQuery } from "@/lib/hooks";
+import { api } from "@/lib/api";
 import { TimeSeries } from "@/components/plot";
 import {
   Card,
@@ -34,9 +36,15 @@ export default function KpiDetail() {
   const params = useParams<{ view: string }>();
   const view = decodeURIComponent(params.view ?? "");
   const meta = metaFor(view);
+  const { data: settings } = useSWR(
+    ["system-settings"],
+    () => api.getSystemSettings(),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
 
-  // Demo data is in 2018 — anchor against that so the page actually has data.
-  const anchor = demoAnchorDate();
+  const isLiveShopifyView =
+    view.startsWith("shopify_") && settings?.data_source === "live";
+  const anchor = isLiveShopifyView ? new Date() : demoAnchorDate();
   const anchorISO = anchor.toISOString().slice(0, 10);
 
   const [rangeDays, setRangeDays] = useState(meta?.defaultRangeDays ?? 30);

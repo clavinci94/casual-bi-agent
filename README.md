@@ -20,6 +20,12 @@ Der Demo-Case enthält absichtlich einen `mobile_checkout_v2`-Fehler. Das System
 
 Wichtig: Das System ist nicht nur auf synthetische Demodaten ausgelegt. Ein echter Shopify-Development-Store (`causal-bi-demo.myshopify.com`) wurde bereits angebunden und über die Shopify Admin API getestet. Simulierte Daten und live synchronisierte Shopify-Daten können parallel in derselben Datenbank koexistieren und im Dashboard umgeschaltet werden.
 
+<p align="center">
+  <img src="docs/assets/readme/01-dashboard-overview.png" alt="Causal BI Dashboard mit Live-Datenmodus, offenen Empfehlungen und zentralen Navigationsbereichen" width="100%">
+</p>
+
+<p align="center"><em>Dashboard-Überblick: Live-Datenmodus, offene Empfehlungen und Einstiegspunkte für Analyse, KPIs, Markt-Radar und Audit-Aktivität.</em></p>
+
 ## Warum das wichtig ist
 
 Viele Unternehmen haben heute genug Dashboards, aber zu wenig Entscheidungen.
@@ -74,6 +80,12 @@ Das Projekt kombiniert klassische BI, Statistik und Agentic AI bewusst in klar g
 
 Das LLM ist dabei nicht der "Statistiker". Die Statistik kommt aus SQL, Python und R. Das LLM übernimmt Orchestrierung, Kontextverständnis und verständliche Kommunikation.
 
+<p align="center">
+  <img src="docs/assets/readme/03-causal-recommendation.png" alt="Kausale Empfehlung mit Effektgrösse, Konfidenzintervall, p-Wert und Human-in-the-Loop-Freigabe" width="100%">
+</p>
+
+<p align="center"><em>Entscheidungsvorlage statt Rohdaten: Effektgrösse, Unsicherheit, p-Wert, empfohlene Schritte und menschliche Freigabe in einer nachvollziehbaren Ansicht.</em></p>
+
 ## Was es besonders macht
 
 ### 1. Echte Kausalanalyse statt nur Korrelation
@@ -92,6 +104,12 @@ Der Agent schaut nicht nur in die eigene Datenbank. Markt-Radar und Investigator
 
 Damit kann das System unterscheiden, ob ein Problem intern entstanden ist oder durch Markt, Plattform, Saison oder externe Ereignisse beeinflusst wurde.
 
+<p align="center">
+  <img src="docs/assets/readme/04-markt-radar.png" alt="Markt-Radar mit Tagesbriefing, Schweizer und globalen Marktsignalen sowie Shopify-Status" width="100%">
+</p>
+
+<p align="center"><em>Markt-Radar: interne Shop-KPIs werden mit DACH-Markt, Kalender, Plattformstatus und externen Signalen verbunden.</em></p>
+
 ### 3. Entscheidungen werden nicht vergessen
 
 Der Knowledge Graph macht aus einzelnen Analysen ein organisationales Gedächtnis:
@@ -105,6 +123,12 @@ Nach einer Beobachtungsperiode misst das System, ob die freigegebene Massnahme f
 ### 4. Governance ist eingebaut
 
 Der Agent kann lesen, analysieren und Empfehlungen vorbereiten. Er darf aber keine riskanten externen Aktionen selbstständig ausführen. Preise, Budgets, E-Mails oder operative Massnahmen bleiben unter menschlicher Kontrolle.
+
+<p align="center">
+  <img src="docs/assets/readme/05-hitl-recommendations.png" alt="Empfehlungsübersicht mit offenen, freigegebenen und archivierten Human-in-the-Loop-Entscheidungen" width="100%">
+</p>
+
+<p align="center"><em>Human-in-the-Loop: Empfehlungen werden priorisiert, geprüft und revisionssicher entschieden, bevor operative Massnahmen entstehen.</em></p>
 
 ## Geschäftlicher Nutzen
 
@@ -233,6 +257,18 @@ Das Projekt unterstützt drei Datenmodi:
 | **Echter Shopify-Dev-Store** | Admin-API-Sync gegen `causal-bi-demo.myshopify.com` | Angebunden und getestet |
 
 Der Shopify-Pfad ist bewusst so gebaut, dass Demo- und Live-Daten nebeneinander liegen. Jede Zeile in `raw.shopify_orders`, `raw.shopify_customers` und `raw.shopify_products` trägt eine `data_source`-Markierung (`sim` oder `live`). Die `kpi.shopify_*`-Views lesen über eine Session-Konfiguration genau den aktuell gewählten Datenmodus. Dadurch kann dasselbe Dashboard wahlweise mit reproduzierbaren Demodaten oder mit echten Shopify-Sync-Daten arbeiten, ohne Views umzubauen oder Daten zu löschen.
+
+<p align="center">
+  <img src="docs/assets/readme/06-settings-live-data.png" alt="Einstellungen mit aktivem Live-Datenmodus für den angebundenen Shopify-Development-Store" width="100%">
+</p>
+
+<p align="center"><em>Datenmodus im Dashboard: Demo- und Live-Shopify-Daten koexistieren in derselben Datenbank und können nicht-destruktiv umgeschaltet werden.</em></p>
+
+<p align="center">
+  <img src="docs/assets/readme/02-shopify-kpi-live.png" alt="Shopify-KPI-Verlauf mit echten Live-Daten aus dem angebundenen Development-Store" width="100%">
+</p>
+
+<p align="center"><em>Shopify-Live-KPI: die angebundene Admin-API liefert echte Bestellzeitreihen, die im gleichen KPI-Layer wie die Demodaten visualisiert werden.</em></p>
 
 Der Betriebsstand geht über lokale Ausführung hinaus: Backend, R-Service und HITL-Service sind über Docker/Render beschrieben, die Datenplattform ist für Neon Postgres ausgelegt, und das Next.js-Dashboard ist Vercel-ready. Der Stack wurde im Projektkontext bereits deployed und erprobt; die Infrastruktur-Dateien bleiben im Repo, damit der Stand reproduzierbar und ausbaufähig ist. Der technische Ablauf ist in [`infra/deploy.md`](infra/deploy.md) dokumentiert.
 
