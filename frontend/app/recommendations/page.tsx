@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { formatRelativeTime, friendlyStatus, statusTone } from "@/lib/labels";
+import { uniqueRecommendationsByTitle } from "@/lib/recommendations";
 import type { Recommendation } from "@/lib/types";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
@@ -48,6 +49,11 @@ export default function RecommendationsIndex() {
     ["recommendations-index", filter],
     () => api.listRecommendations(filter, 100, ["test"]),
   );
+  const visibleRecommendations = useMemo(
+    () => uniqueRecommendationsByTitle(data ?? []),
+    [data],
+  );
+  const hiddenDuplicateCount = (data?.length ?? 0) - visibleRecommendations.length;
 
   // Multi-select is only meaningful for pending rows — decided ones are
   // visible but not selectable. Clear selection when filter changes.
@@ -66,8 +72,11 @@ export default function RecommendationsIndex() {
   }
 
   const selectableIds = useMemo(
-    () => (data ?? []).filter((r) => r.status === "pending").map((r) => r.rec_id),
-    [data],
+    () =>
+      visibleRecommendations
+        .filter((r) => r.status === "pending")
+        .map((r) => r.rec_id),
+    [visibleRecommendations],
   );
 
   function clearSelection() {
@@ -127,7 +136,7 @@ export default function RecommendationsIndex() {
         <ErrorMessage error={error} />
       ) : isLoading ? (
         <Loading />
-      ) : !data || data.length === 0 ? (
+      ) : !data || visibleRecommendations.length === 0 ? (
         <Card className="p-6">
           <Empty>
             Keine Empfehlungen mit diesem Filter. Sobald der Agent etwas
@@ -137,14 +146,20 @@ export default function RecommendationsIndex() {
       ) : (
         <>
           <div className="text-sm text-[var(--color-muted)] mb-[0.2cm]">
-            {data.length} {data.length === 1 ? "Empfehlung" : "Empfehlungen"}
+            {visibleRecommendations.length}{" "}
+            {visibleRecommendations.length === 1
+              ? "eindeutige Empfehlung"
+              : "eindeutige Empfehlungen"}
             {selectableIds.length > 0
               ? ` · ${selectableIds.length} davon offen`
+              : ""}
+            {hiddenDuplicateCount > 0
+              ? ` · ${hiddenDuplicateCount} Wiederholungen zusammengefasst`
               : ""}
           </div>
 
           <ul className="space-y-3">
-            {data.map((r) => (
+            {visibleRecommendations.map((r) => (
               <RecommendationRow
                 key={r.rec_id}
                 rec={r}

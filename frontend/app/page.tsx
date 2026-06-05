@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
@@ -17,6 +18,7 @@ import { api } from "@/lib/api";
 import { useReadiness, useRecommendations, useRuns } from "@/lib/hooks";
 import { Card, ErrorMessage, Loading, MutedLink, Pill } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/labels";
+import { uniqueRecommendationsByTitle } from "@/lib/recommendations";
 
 /**
  * Heuristic: prompts that look like background scans, smoke checks, or
@@ -68,6 +70,10 @@ export default function Dashboard() {
   // Hide pytest fixtures from the dashboard so managers only see real work.
   // Power users can still drop the filter on /runs (which keeps everything).
   const pending = useRecommendations("pending", ["test"]);
+  const uniquePending = useMemo(
+    () => uniqueRecommendationsByTitle(pending.data ?? []),
+    [pending.data],
+  );
   const runs = useRuns(20, ["test"]);
   // Also hide the automatic background scans + obvious test-shaped
   // prompts ("budget test", "noop"); they're noise on an exec view.
@@ -126,11 +132,11 @@ export default function Dashboard() {
 
       {/* Situation-at-a-glance — auto-summary of what the manager should know. */}
       <SituationBanner
-        pendingCount={pending.data?.length ?? 0}
+        pendingCount={uniquePending.length}
         topRisk={
-          pending.data?.find((r) => r.risk_level === "high")?.risk_level ??
-          pending.data?.find((r) => r.risk_level === "medium")?.risk_level ??
-          (pending.data && pending.data.length > 0 ? "low" : null)
+          uniquePending.find((r) => r.risk_level === "high")?.risk_level ??
+          uniquePending.find((r) => r.risk_level === "medium")?.risk_level ??
+          (uniquePending.length > 0 ? "low" : null)
         }
         loading={pending.isLoading}
       />
@@ -140,13 +146,13 @@ export default function Dashboard() {
         <div className="mb-4 flex items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">
             Empfehlungen zur Freigabe
-            {pending.data && pending.data.length > 0 ? (
+            {uniquePending.length > 0 ? (
               <span className="ml-2 text-sm font-normal text-[var(--color-muted)]">
-                · {pending.data.length} offen
+                · {uniquePending.length} offen
               </span>
             ) : null}
           </h2>
-          {pending.data && pending.data.length > 0 ? (
+          {uniquePending.length > 0 ? (
             <MutedLink href="/recommendations">Alle anzeigen →</MutedLink>
           ) : null}
         </div>
@@ -154,7 +160,7 @@ export default function Dashboard() {
           <ErrorMessage error={pending.error} />
         ) : pending.isLoading ? (
           <Loading />
-        ) : !pending.data || pending.data.length === 0 ? (
+        ) : !pending.data || uniquePending.length === 0 ? (
           <Card className="p-6 flex items-start gap-3 border-dashed">
             <CheckCircle2 className="size-5 text-[var(--color-success)] shrink-0 mt-0.5" />
             <div>
@@ -167,7 +173,7 @@ export default function Dashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {pending.data.slice(0, 6).map((r) => (
+            {uniquePending.slice(0, 6).map((r) => (
               <RecommendationMemo key={r.rec_id} rec={r} />
             ))}
           </div>
@@ -492,4 +498,3 @@ function SystemDot({
     </span>
   );
 }
-
